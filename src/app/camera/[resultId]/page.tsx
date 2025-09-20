@@ -36,30 +36,6 @@ const FINGER_PAIRS: FingerIndices[] = [
   { tip: 20, pip: 18 },
 ]
 
-const HAND_CONNECTIONS: Array<[number, number]> = [
-  [0, 1],
-  [1, 2],
-  [2, 3],
-  [3, 4],
-  [0, 5],
-  [5, 6],
-  [6, 7],
-  [7, 8],
-  [5, 9],
-  [9, 10],
-  [10, 11],
-  [11, 12],
-  [9, 13],
-  [13, 14],
-  [14, 15],
-  [15, 16],
-  [13, 17],
-  [17, 18],
-  [18, 19],
-  [19, 20],
-  [0, 17],
-]
-
 const HANDS_CDN = 'https://cdn.jsdelivr.net/npm/@mediapipe/hands/'
 const HAND_SCRIPT_SRC = `${HANDS_CDN}hands.js`
 
@@ -143,34 +119,7 @@ function getHandCenter(landmarks: HandLandmarks) {
   }
 }
 
-function drawHand(context: CanvasRenderingContext2D, landmarks: HandLandmarks) {
-  const { width, height } = context.canvas
-
-  context.lineWidth = 3
-  context.strokeStyle = '#22d3ee'
-  context.lineJoin = 'round'
-  context.lineCap = 'round'
-
-  for (const [startIdx, endIdx] of HAND_CONNECTIONS) {
-    const start = landmarks[startIdx]
-    const end = landmarks[endIdx]
-    if (!start || !end) continue
-
-    context.beginPath()
-    context.moveTo(start.x * width, start.y * height)
-    context.lineTo(end.x * width, end.y * height)
-    context.stroke()
-  }
-
-  const radius = Math.max(3, Math.min(width, height) * 0.008)
-  context.fillStyle = '#fbbf24'
-
-  for (const point of landmarks) {
-    context.beginPath()
-    context.arc(point.x * width, point.y * height, radius, 0, Math.PI * 2)
-    context.fill()
-  }
-}
+function drawHand(_context: CanvasRenderingContext2D, _landmarks: HandLandmarks) {}
 
 export default function CameraPage() {
   const params = useParams<{ resultId: string }>()
@@ -180,6 +129,7 @@ export default function CameraPage() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const overlayImageRef = useRef<HTMLImageElement | null>(null)
   const overlayReadyRef = useRef(false)
+  const aspectRatioRef = useRef(16 / 9)
 
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [overlayError, setOverlayError] = useState<string | null>(null)
@@ -188,6 +138,9 @@ export default function CameraPage() {
   const [overlayReady, setOverlayReady] = useState(false)
   const [overlayUrl, setOverlayUrl] = useState<string | null>(null)
   const [fistCount, setFistCount] = useState(0)
+  const [isCapturing, setIsCapturing] = useState(false)
+  const [captureMessage, setCaptureMessage] = useState<string | null>(null)
+  const [aspectRatio, setAspectRatio] = useState(16 / 9)
 
   useEffect(() => {
     overlayReadyRef.current = overlayReady
@@ -319,6 +272,14 @@ export default function CameraPage() {
           canvas.height = videoHeight
         }
 
+        if (videoWidth && videoHeight) {
+          const nextAspect = videoWidth / videoHeight
+          if (Number.isFinite(nextAspect) && Math.abs(aspectRatioRef.current - nextAspect) > 0.001) {
+            aspectRatioRef.current = nextAspect
+            setAspectRatio(nextAspect)
+          }
+        }
+
         context.save()
         context.clearRect(0, 0, canvas.width, canvas.height)
 
@@ -336,28 +297,14 @@ export default function CameraPage() {
 
             if (overlayReadyRef.current && overlayImageRef.current) {
               const overlayImg = overlayImageRef.current
-              const baseSize = Math.max(canvas.width, canvas.height) * 0.25
-              const naturalWidth = overlayImg.naturalWidth || overlayImg.width
-              const naturalHeight = overlayImg.naturalHeight || overlayImg.height
-              const aspect = naturalWidth && naturalHeight ? naturalWidth / naturalHeight : 1
 
-              let drawWidth = baseSize
-              let drawHeight = baseSize
-              if (aspect > 1) {
-                drawHeight = baseSize / aspect
-              } else {
-                drawWidth = baseSize * aspect
-              }
+              const drawWidth = Math.max(canvas.width * 0.18, 1)
+              const drawHeight = Math.max(canvas.height * 0.38, 1)
 
               context.save()
-              context.translate(posX, posY)
+              context.translate(posX, posY - drawHeight * 0.7)
               context.drawImage(overlayImg, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
               context.restore()
-            } else {
-              context.beginPath()
-              context.arc(posX, posY, Math.max(canvas.width, canvas.height) * 0.04, 0, Math.PI * 2)
-              context.fillStyle = 'rgba(220, 38, 38, 0.7)'
-              context.fill()
             }
           }
         }
@@ -413,7 +360,7 @@ export default function CameraPage() {
         style={{
           position: 'relative',
           width: 'min(90vw, 720px)',
-          aspectRatio: '16 / 9',
+          aspectRatio,
           backgroundColor: '#000',
           borderRadius: '0.75rem',
           overflow: 'hidden',
@@ -456,6 +403,98 @@ export default function CameraPage() {
         )}
         {overlayUrl && overlayReady && (
           <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>表示中の画像: {overlayUrl}</p>
+        )}
+        <button
+          onClick={async () => {
+            if (isCapturing) return
+
+            setCaptureMessage(null)
+
+            if (!resultId) {
+              setCaptureMessage('結果IDが不明なため保存できません。')
+              return
+            }
+
+            const video = videoRef.current
+            const overlayCanvas = canvasRef.current
+
+            if (!video || !overlayCanvas) {
+              setCaptureMessage('カメラがまだ準備できていません。')
+              return
+            }
+
+            const { videoWidth, videoHeight } = video
+            if (!videoWidth || !videoHeight) {
+              setCaptureMessage('カメラ映像が利用できません。')
+              return
+            }
+
+            const snapshotCanvas = document.createElement('canvas')
+            snapshotCanvas.width = videoWidth
+            snapshotCanvas.height = videoHeight
+            const context = snapshotCanvas.getContext('2d')
+
+            if (!context) {
+              setCaptureMessage('画像の生成に失敗しました。')
+              return
+            }
+
+            context.drawImage(video, 0, 0, videoWidth, videoHeight)
+            context.drawImage(overlayCanvas, 0, 0, videoWidth, videoHeight)
+
+            setIsCapturing(true)
+
+            snapshotCanvas.toBlob(async (blob) => {
+              if (!blob) {
+                setCaptureMessage('画像の生成に失敗しました。')
+                setIsCapturing(false)
+                return
+              }
+
+              try {
+                const formData = new FormData()
+                formData.append('file', blob, 'photo.png')
+
+                const response = await fetch(`/api/results/${resultId}/photo`, {
+                  method: 'POST',
+                  body: formData,
+                })
+
+                if (!response.ok) {
+                  const message = await response.text()
+                  throw new Error(message || '写真の保存に失敗しました。')
+                }
+
+                await response.json()
+                setCaptureMessage('写真を保存しました。')
+              } catch (error) {
+                console.error(error)
+                setCaptureMessage(error instanceof Error ? error.message : '写真の保存に失敗しました。')
+              } finally {
+                setIsCapturing(false)
+              }
+            }, 'image/png')
+          }}
+          disabled={isCapturing || !!cameraError || !!overlayError || !isReady}
+          style={{
+            marginTop: '0.5rem',
+            padding: '0.75rem 1.5rem',
+            borderRadius: '9999px',
+            border: 'none',
+            backgroundColor: isCapturing || cameraError || overlayError || !isReady ? '#9ca3af' : '#2563eb',
+            color: '#fff',
+            fontSize: '1rem',
+            fontWeight: 600,
+            cursor: isCapturing || cameraError || overlayError || !isReady ? 'not-allowed' : 'pointer',
+            transition: 'background-color 0.2s ease',
+          }}
+        >
+          {isCapturing ? '保存中…' : '写真を撮る'}
+        </button>
+        {captureMessage && (
+          <p style={{ fontSize: '0.875rem', color: captureMessage.includes('失敗') ? '#dc2626' : '#059669' }}>
+            {captureMessage}
+          </p>
         )}
       </div>
     </div>
