@@ -1,54 +1,63 @@
-datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-}
-
 generator client {
   provider = "prisma-client-js"
 }
 
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
 model User {
-  id          Int          @id @default(autoincrement())
-  email       String       @unique
-  name        String
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @default(now()) @map("updated_at")
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  name         String
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @default(now()) @map("updated_at")
+  canvases     CanvasData[]
   handGestures HandGesture[]
-  canvases    CanvasData[]
 
   @@map("users")
 }
 
 model HandGesture {
-  id          Int       @id @default(autoincrement())
-  userId      Int?      @map("user_id")
-  gestureData String    @map("gesture_data")
-  timestamp   DateTime  @default(now())
-  isProcessed Boolean   @default(false) @map("is_processed")
-  user        User?     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")
+  gestureData String   @map("gesture_data")
+  timestamp   DateTime @default(now())
+  isProcessed Boolean  @default(false) @map("is_processed")
+  user        User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("hand_gestures")
 }
 
 model CanvasData {
-  id          Int       @id @default(autoincrement())
-  userId      Int?      @map("user_id")
-  canvasState String    @map("canvas_state")
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")
+  canvasState String   @map("canvas_state")
   title       String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @default(now()) @map("updated_at")
-  user        User?     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
+  user        User?    @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@map("canvas_data")
 }
 
 model Test1 {
-  id          Int       @id @default(autoincrement())
-  userId      Int?      @map("user_id")
-  canvasState String    @map("canvas_state")
+  id          Int      @id @default(autoincrement())
+  userId      Int?     @map("user_id")
+  canvasState String   @map("canvas_state")
   title       String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @default(now()) @map("updated_at")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @default(now()) @map("updated_at")
 
   @@map("test1")
+}
+
+model test_Kou {
+  id           Int      @id @default(autoincrement())
+  user_id      Int?
+  canvas_state String
+  title        String?
+  created_at   DateTime @default(now())
+  updated_at   DateTime @default(now())
 }
