@@ -8,10 +8,12 @@ generator client {
 }
 
 model Questions {
-  id       Int       @id @default(autoincrement())
-  content  String?
-  is_adult Boolean   @map("is_adult") // is_adultにマッピング
-  options  Options[]
+  id        Int       @id @default(autoincrement())
+  content   String
+  isAdult   Boolean   @default(false) @map("is_adult")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  options   Options[]
 
   @@map("questions")
 }
@@ -19,15 +21,21 @@ model Questions {
 model Options {
   id         Int       @id @default(autoincrement())
   questionId Int
-  question   Questions @relation(fields: [questionId], references: [id])
   content    String
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  question   Questions @relation(fields: [questionId], references: [id])
 
   @@map("options")
 }
 
 model Results {
-  id         Int    @id @default(autoincrement())
-  answer     Int?   @map("answer_id") // answersは単数形のanswerに修正、マッピングをanswer_idに
-  
+  id            Int      @id @default(autoincrement())
+  answers       Int[]    @default([]) @map("answer_ids")
+  appleCandyUrl String?  @map("apple_candy_url")
+  photoUrl      String?  @map("photo_url")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
   @@map("results")
 }
