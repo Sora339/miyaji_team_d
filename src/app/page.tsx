@@ -1,20 +1,7 @@
 'use client'
 
-import { Results } from '@mediapipe/hands'
-import { Canvas } from 'fabric'
 
 export default function Home() {
-  const handleHandResults = (results: Results) => {
-    // ハンド検出結果を処理
-    if (results.multiHandLandmarks) {
-      console.log('検出された手の数:', results.multiHandLandmarks.length)
-    }
-  }
-
-  const handleCanvasChange = (canvas: Canvas) => {
-    // キャンバスの変更を処理
-    console.log('キャンバスが変更されました', canvas.getObjects().length)
-  }
 
   return (
     <div className="min-h-screen p-8">
@@ -32,7 +19,7 @@ export default function Home() {
             <li>✅ Next.js (TypeScript)</li>
             <li>✅ Tailwind CSS</li>
             <li>✅ Supabase Client</li>
-            <li>✅ Drizzle ORM</li>
+            <li>✅ Prisma ORM</li>
             <li>✅ MediaPipe Hands</li>
             <li>✅ Fabric.js</li>
           </ul>

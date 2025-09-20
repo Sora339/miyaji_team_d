@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server'
-import { db } from '@/lib/db'
-import { sql } from 'drizzle-orm'
+import { prisma } from '@/lib/prisma'
 
 export async function POST() {
   try {
     console.log('🚀 テーブル作成を開始します...')
 
     // ここでは手動でテーブルを作成します
-    // 実際のプロダクションでは drizzle-kit push を使用
+    // 実運用では Prisma Migrate を使用してください
     
     // usersテーブル作成
-    await db.execute(sql`
+    await prisma.$executeRaw`
       CREATE TABLE IF NOT EXISTS users (
         id SERIAL PRIMARY KEY,
         email TEXT NOT NULL UNIQUE,
@@ -21,7 +20,7 @@ export async function POST() {
     `)
 
     // hand_gesturesテーブル作成
-    await db.execute(sql`
+    await prisma.$executeRaw`
       CREATE TABLE IF NOT EXISTS hand_gestures (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id),
@@ -32,7 +31,7 @@ export async function POST() {
     `)
 
     // canvas_dataテーブル作成
-    await db.execute(sql`
+    await prisma.$executeRaw`
       CREATE TABLE IF NOT EXISTS canvas_data (
         id SERIAL PRIMARY KEY,
         user_id INTEGER REFERENCES users(id),

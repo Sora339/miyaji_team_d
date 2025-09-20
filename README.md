@@ -1,4 +1,4 @@
-# MediaPipe Hands + Fabric.js + Supabase + Drizzle ORM プロジェクト
+# MediaPipe Hands + Fabric.js + Supabase + Prisma プロジェクト
 
 このプロジェクトは、以下の技術スタックを使用して構築されています：
 
@@ -6,7 +6,7 @@
 - **TypeScript** - 型安全性
 - **Tailwind CSS** - スタイリング
 - **Supabase** - バックエンド・データベース
-- **Drizzle ORM** - 型安全なORM
+- **Prisma** - 型安全な ORM 兼クエリビルダー
 - **MediaPipe Hands** - ハンド検出・トラッキング
 - **Fabric.js** - キャンバス描画ライブラリ
 
@@ -14,8 +14,8 @@
 
 - 📱 **リアルタイムハンド検出**: WebカメラからMediaPipe Handsを使用して手の動きを検出
 - 🎨 **インタラクティブキャンバス**: Fabric.jsを使用した描画・編集機能
-- 🗄️ **データベース統合**: Supabase + Drizzle ORMでのデータ永続化
-- 🎯 **型安全**: TypeScriptとDrizzle ORMによる完全な型安全性
+- 🗄️ **データベース統合**: Supabase + Prisma でのデータ永続化
+- 🎯 **型安全**: TypeScript と Prisma による完全な型安全性
 
 ## セットアップ
 
@@ -34,18 +34,18 @@ npm install
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
-# データベース接続（Drizzle用）
+# データベース接続
 DATABASE_URL=postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
 ```
 
 ### 3. データベースマイグレーション
 
 ```bash
-# マイグレーションファイルを生成
-npm run db:generate
+# Prisma Client を生成
+npm run prisma:generate
 
-# データベースにスキーマを適用
-npm run db:push
+# 本番環境など既存の DB にマイグレーションを適用
+npm run prisma:migrate
 ```
 
 ### 4. 開発サーバーの起動
@@ -62,9 +62,9 @@ npm run dev
 - `npm run build` - プロダクション用にビルド
 - `npm run start` - プロダクションサーバーを起動
 - `npm run lint` - ESLintを実行
-- `npm run db:generate` - Drizzle マイグレーションファイルを生成
-- `npm run db:push` - データベースにスキーマを適用
-- `npm run db:studio` - Drizzle Studio を起動（データベース管理UI）
+- `npm run prisma:generate` - Prisma Client を生成
+- `npm run prisma:migrate` - マイグレーションを適用
+- `npm run prisma:studio` - Prisma Studio を起動（データベース管理UI）
 
 ## 使い方
 

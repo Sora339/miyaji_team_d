@@ -7,24 +7,23 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "db:generate": "drizzle-kit generate",
-    "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "prisma:generate": "prisma generate",
+    "prisma:migrate": "prisma migrate deploy",
+    "prisma:studio": "prisma studio"
   },
   "dependencies": {
     "@mediapipe/drawing_utils": "^0.3.1675466124",
     "@mediapipe/hands": "^0.4.1675469240",
+    "@prisma/client": "^6.0.1",
     "@supabase/supabase-js": "^2.57.4",
     "dotenv": "^17.2.2",
-    "drizzle-kit": "^0.31.4",
-    "drizzle-orm": "^0.44.5",
     "fabric": "^6.7.1",
     "next": "15.5.3",
-    "postgres": "^3.4.7",
     "react": "19.1.0",
     "react-dom": "19.1.0"
   },
   "devDependencies": {
+    "prisma": "^6.0.1",
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@types/dotenv": "^6.1.1",
