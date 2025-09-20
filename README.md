@@ -1,36 +1,86 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# MediaPipe Hands + Fabric.js + Supabase + Drizzle ORM プロジェクト
 
-## Getting Started
+このプロジェクトは、以下の技術スタックを使用して構築されています：
 
-First, run the development server:
+- **Next.js 15** (App Router) - React フレームワーク
+- **TypeScript** - 型安全性
+- **Tailwind CSS** - スタイリング
+- **Supabase** - バックエンド・データベース
+- **Drizzle ORM** - 型安全なORM
+- **MediaPipe Hands** - ハンド検出・トラッキング
+- **Fabric.js** - キャンバス描画ライブラリ
+
+## 機能
+
+- 📱 **リアルタイムハンド検出**: WebカメラからMediaPipe Handsを使用して手の動きを検出
+- 🎨 **インタラクティブキャンバス**: Fabric.jsを使用した描画・編集機能
+- 🗄️ **データベース統合**: Supabase + Drizzle ORMでのデータ永続化
+- 🎯 **型安全**: TypeScriptとDrizzle ORMによる完全な型安全性
+
+## セットアップ
+
+### 1. 依存関係のインストール
+
+```bash
+npm install
+```
+
+### 2. 環境変数の設定
+
+`.env.local` ファイルを編集して、あなたのSupabaseプロジェクトの情報を設定してください：
+
+```env
+# Supabase設定
+NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+
+# データベース接続（Drizzle用）
+DATABASE_URL=postgresql://postgres:[password]@db.[project-ref].supabase.co:5432/postgres
+```
+
+### 3. データベースマイグレーション
+
+```bash
+# マイグレーションファイルを生成
+npm run db:generate
+
+# データベースにスキーマを適用
+npm run db:push
+```
+
+### 4. 開発サーバーの起動
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+アプリケーションが `http://localhost:3000` で起動します。
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## 利用可能なスクリプト
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `npm run dev` - 開発サーバーを起動
+- `npm run build` - プロダクション用にビルド
+- `npm run start` - プロダクションサーバーを起動
+- `npm run lint` - ESLintを実行
+- `npm run db:generate` - Drizzle マイグレーションファイルを生成
+- `npm run db:push` - データベースにスキーマを適用
+- `npm run db:studio` - Drizzle Studio を起動（データベース管理UI）
 
-## Learn More
+## 使い方
 
-To learn more about Next.js, take a look at the following resources:
+1. ブラウザでアプリケーションにアクセス
+2. カメラの使用を許可
+3. 左側でハンド検出を確認
+4. 右側のキャンバスで描画・編集
+5. データはSupabaseデータベースに保存可能
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 環境変数設定
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+`.env.local` ファイルで以下の値を設定してください：
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```env
+# あなたのSupabaseプロジェクトの情報に置き換えてください
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+DATABASE_URL=your_postgres_connection_string
+```
