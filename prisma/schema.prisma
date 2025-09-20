@@ -1,54 +1,33 @@
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
 }
 
 generator client {
   provider = "prisma-client-js"
 }
 
-model User {
-  id          Int          @id @default(autoincrement())
-  email       String       @unique
-  name        String
-  createdAt   DateTime     @default(now()) @map("created_at")
-  updatedAt   DateTime     @default(now()) @map("updated_at")
-  handGestures HandGesture[]
-  canvases    CanvasData[]
+model Questions {
+  id       Int       @id @default(autoincrement())
+  content  String?
+  is_adult Boolean   @map("is_adult") // is_adultにマッピング
+  options  Options[]
 
-  @@map("users")
+  @@map("questions")
 }
 
-model HandGesture {
-  id          Int       @id @default(autoincrement())
-  userId      Int?      @map("user_id")
-  gestureData String    @map("gesture_data")
-  timestamp   DateTime  @default(now())
-  isProcessed Boolean   @default(false) @map("is_processed")
-  user        User?     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+model Options {
+  id         Int       @id @default(autoincrement())
+  questionId Int
+  question   Questions @relation(fields: [questionId], references: [id])
+  content    String
 
-  @@map("hand_gestures")
+  @@map("options")
 }
 
-model CanvasData {
-  id          Int       @id @default(autoincrement())
-  userId      Int?      @map("user_id")
-  canvasState String    @map("canvas_state")
-  title       String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @default(now()) @map("updated_at")
-  user        User?     @relation(fields: [userId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-
-  @@map("canvas_data")
-}
-
-model Test1 {
-  id          Int       @id @default(autoincrement())
-  userId      Int?      @map("user_id")
-  canvasState String    @map("canvas_state")
-  title       String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @default(now()) @map("updated_at")
-
-  @@map("test1")
+model Results {
+  id         Int    @id @default(autoincrement())
+  answer     Int?   @map("answer_id") // answersは単数形のanswerに修正、マッピングをanswer_idに
+  
+  @@map("results")
 }
