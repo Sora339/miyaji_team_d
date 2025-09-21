@@ -22,20 +22,23 @@ interface QuizModalProps {
     isOpen: boolean
     onClose: () => void
     isAdult?: boolean // 大人向けコンテンツのフラグ
+    resultId: number
 }
 
-export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) {
+type QuizStage = 'question' | 'generating' | 'complete'
+
+export function QuizModal({ isOpen, onClose, isAdult = false, resultId }: QuizModalProps) {
     const router = useRouter()
     const [questions, setQuestions] = useState<Question[]>([])
     const [loading, setLoading] = useState(false)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [currentQuestion, setCurrentQuestion] = useState(0)
     const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null)
-    const [showResultButton, setShowResultButton] = useState(false)
-    const [showFinalResult, setShowFinalResult] = useState(false)
     const [answers, setAnswers] = useState<number[]>([])
+    const [stage, setStage] = useState<QuizStage>('question')
+    const [appleCandyUrl, setAppleCandyUrl] = useState<string | null>(null)
+    const [generationError, setGenerationError] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
-    const [uploadError, setUploadError] = useState<string | null>(null)
 
     const progress = questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0
 
@@ -77,11 +80,11 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
             // リセット
             setCurrentQuestion(0)
             setSelectedOptionId(null)
-            setShowResultButton(false)
-            setShowFinalResult(false)
             setAnswers([])
+            setStage('question')
             setIsSubmitting(false)
-            setUploadError(null)
+            setAppleCandyUrl(null)
+            setGenerationError(null)
         }
     }, [isOpen])
 
@@ -142,46 +145,28 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
         setSelectedOptionId(optionId)
     }
 
-    const handleNext = () => {
-        if (selectedOptionId === null) return
-
-        const newAnswers = [...answers, selectedOptionId]
-        setAnswers(newAnswers)
-
-        if (currentQuestion < questions.length - 1) {
-            setCurrentQuestion(currentQuestion + 1)
-            setSelectedOptionId(null)
-        } else {
-            setShowResultButton(true)
-        }
-    }
-
-    const handleShowResult = () => {
-        setShowFinalResult(true)
-    }
-
-    const handleSubmitResults = async () => {
+    const submitResults = async (finalAnswers: number[]) => {
         if (isSubmitting) return
 
         setIsSubmitting(true)
-        setUploadError(null)
+        setGenerationError(null)
 
         try {
-            // アンケート結果をAPIに送信
             const response = await fetch('/api/results/survey-upload', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    answers,
+                    resultId,
+                    answers: finalAnswers,
                     totalQuestions: questions.length,
-                    isAdult, // モード情報も送信
+                    isAdult,
                     questions: questions.map(q => ({
                         id: q.id,
-                        question: q.question
-                    }))
-                })
+                        question: q.question,
+                    })),
+                }),
             })
 
             if (!response.ok) {
@@ -195,13 +180,34 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                 throw new Error('結果IDを取得できませんでした。')
             }
 
-            // カメラページに遷移
-            router.push(`/camera/${data.resultId}`)
-            onClose() // モーダルを閉じる
+            if (!data?.appleCandyUrl) {
+                throw new Error('りんご飴画像の生成に失敗しました。')
+            }
+
+            setAppleCandyUrl(data.appleCandyUrl)
+            setStage('complete')
         } catch (err) {
             console.error(err)
-            setUploadError(err instanceof Error ? err.message : '不明なエラーが発生しました。')
+            setGenerationError(err instanceof Error ? err.message : '不明なエラーが発生しました。')
+            setStage('generating')
+        } finally {
             setIsSubmitting(false)
+        }
+    }
+
+    const handleNext = () => {
+        if (selectedOptionId === null) return
+
+        const newAnswers = [...answers, selectedOptionId]
+        setAnswers(newAnswers)
+
+        if (currentQuestion < questions.length - 1) {
+            setCurrentQuestion(currentQuestion + 1)
+            setSelectedOptionId(null)
+        } else {
+            setSelectedOptionId(null)
+            setStage('generating')
+            void submitResults(newAnswers)
         }
     }
 
@@ -231,7 +237,7 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                         <X className="h-5 w-5" />
                     </Button>
 
-                    {!showResultButton && !showFinalResult ? (
+                    {stage === 'question' && (
                         <div className="space-y-8 py-8 px-6 pt-12">
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center text-sm">
@@ -288,39 +294,63 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
 
                                 <div className="pt-6">
                                     <Button
-                                    onClick={handleNext}
-                                    disabled={selectedOptionId === null}
+                                        onClick={handleNext}
+                                        disabled={selectedOptionId === null}
                                         size="lg"
                                         className="px-10 py-4 cute-button bg-gradient-to-r from-firework-gold to-firework-pink hover:from-firework-pink hover:to-firework-purple text-white font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {currentQuestion === questions.length - 1 ? "完了" : "次の質問 →"}
+                                        {currentQuestion === questions.length - 1 ? "回答完了" : "次の質問 →"}
                                     </Button>
                                 </div>
                             </div>
                         </div>
-                    ) : showResultButton && !showFinalResult ? (
+                    )}
+
+                    {stage === 'generating' && (
                         <div className="space-y-8 py-16 text-center">
                             <div className="space-y-6">
-                                <div className="text-6xl">🎉</div>
-                                <h2 className="text-3xl md:text-4xl font-bold text-balance text-white">全質問回答完了！</h2>
-                                <p className="text-xl text-white">お疲れさまでした！さぁどんなりんご飴ができているかな？</p>
+                                <div className="text-6xl">{generationError ? '⚠️' : '🍭'}</div>
+                                <h2 className="text-3xl md:text-4xl font-bold text-balance text-white">
+                                    {generationError ? 'りんご飴の生成に失敗しました' : '全質問回答完了！'}
+                                </h2>
+                                <p className="text-xl text-white">
+                                    {generationError
+                                        ? 'もう一度お試しください。'
+                                        : 'あなたの回答からオリジナルのりんご飴を生成しています...'}
+                                </p>
                             </div>
 
-                            <div className="pt-6">
-                                <Button
-                                    onClick={handleShowResult}
-                                    size="lg"
-                                    className="px-12 py-4 cute-button bg-gradient-to-r from-firework-gold to-firework-pink hover:from-firework-pink hover:to-firework-purple text-white font-bold text-xl"
-                                >
-                                    結果を見る🍭
-                                </Button>
-                            </div>
+                            {generationError ? (
+                                <div className="flex flex-col gap-4 items-center">
+                                    <Button
+                                        onClick={() => submitResults(answers)}
+                                        disabled={isSubmitting}
+                                        className="px-10 py-4 cute-button bg-gradient-to-r from-firework-pink to-firework-gold hover:from-firework-gold hover:to-firework-pink text-white font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isSubmitting ? '再試行中...' : '再試行する'}
+                                    </Button>
+                                    <Button
+                                        onClick={onClose}
+                                        variant="outline"
+                                        className="px-8 py-3 cute-button border-firework-gold/30 hover:bg-firework-gold/10 text-firework-gold font-bold"
+                                    >
+                                        🏠 ホームに戻る
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="flex flex-col items-center gap-4">
+                                    <div className="animate-spin rounded-full h-14 w-14 border-b-2 border-firework-gold"></div>
+                                    <p className="text-sm text-white/80">少々お待ちください...</p>
+                                </div>
+                            )}
                         </div>
-                    ) : (
+                    )}
+
+                    {stage === 'complete' && (
                         <div className="space-y-8 py-12 text-center">
                             <div className="space-y-6">
                                 <div className="text-6xl">🎊</div>
-                                <h2 className="text-3xl md:text-4xl font-bold text-balance text-foreground">アンケート完了</h2>
+                                <h2 className="text-3xl md:text-4xl font-bold text-balance text-foreground">オリジナルりんご飴が完成！</h2>
                                 <div className="text-8xl font-bold">
                                     <span className="bg-gradient-to-r from-firework-pink via-firework-gold to-firework-mint bg-clip-text text-transparent">
                                         {questions.length}
@@ -328,28 +358,39 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                                     <span className="text-3xl text-muted-foreground">問</span>
                                 </div>
                                 <p className="text-2xl font-semibold text-firework-gold">
-                                    {isAdult ? '大人モード' : 'キッズモード'}の全ての質問にお答えいただきありがとうございました
+                                    {isAdult ? '大人モード' : 'キッズモード'}の回答から生み出されたオリジナルりんご飴です
                                 </p>
-
-                                <div className="text-lg text-muted-foreground">
-                                    🌟 あなたの貴重なご意見をお聞かせいただき、ありがとうございます！
-                                </div>
                             </div>
 
-                            {uploadError && (
+                            {appleCandyUrl && (
+                                <div className="flex justify-center">
+                                    <div className="relative w-full max-w-sm aspect-square rounded-3xl overflow-hidden border-4 border-firework-gold/40 shadow-2xl">
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                            src={appleCandyUrl}
+                                            alt="生成されたりんご飴"
+                                            className="w-full h-full object-contain bg-gradient-to-b from-slate-900 via-slate-800 to-slate-900"
+                                        />
+                                    </div>
+                                </div>
+                            )}
+
+                            {generationError && (
                                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
-                                    <p className="text-red-400">{uploadError}</p>
+                                    <p className="text-red-400">{generationError}</p>
                                 </div>
                             )}
 
                             <div className="flex flex-col gap-4 pt-6">
                                 <Button
-                                    onClick={handleSubmitResults}
-                                    disabled={isSubmitting}
+                                    onClick={() => {
+                                        router.push(`/camera/${resultId}`)
+                                        onClose()
+                                    }}
                                     size="lg"
-                                    className="px-12 py-4 cute-button bg-gradient-to-r from-firework-blue to-firework-mint hover:from-firework-mint hover:to-firework-blue text-white font-bold text-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="px-12 py-4 cute-button bg-gradient-to-r from-firework-blue to-firework-mint hover:from-firework-mint hover:to-firework-blue text-white font-bold text-xl"
                                 >
-                                    {isSubmitting ? '📤 回答を送信中...' : '📤 回答を送信してカメラへ'}
+                                    📷 カメラに進む
                                 </Button>
 
                                 <Button

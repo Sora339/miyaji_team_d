@@ -6,7 +6,7 @@ import { prisma } from '@/lib/prisma'
 import { supabaseAdmin } from '@/lib/supabaseAdmin'
 
 const APPLE_CANDY_BUCKET = 'apple-candy-images'
-const TEST_IMAGE_PATH = join(process.cwd(), 'public', 'image', 'base', 'red_origin.png')
+const TEST_IMAGE_PATH = join(process.cwd(), 'public', 'image', 'base', '1.png')
 
 export async function POST() {
   try {
