@@ -1,19 +1,32 @@
 "use client"
 
-import { useState } from "react"
+import { useMemo, useState } from "react"
+import { useParams } from "next/navigation"
+
 import { Button } from "@/components/ui/button"
 import { QuizModal } from "@/components/quiz-modal"
 
-export default function HomePage() {
+export default function QuestionPage() {
+  const params = useParams<{ formId: string }>()
+  const resultId = useMemo(() => {
+    const idParam = params?.formId
+    if (!idParam) return null
+
+    const parsed = Number(idParam)
+    return Number.isFinite(parsed) ? parsed : null
+  }, [params])
+
   const [isQuizOpen, setIsQuizOpen] = useState(false)
   const [isAdultMode, setIsAdultMode] = useState(false)
 
   const handleKidsMode = () => {
+    if (resultId === null) return
     setIsAdultMode(false)
     setIsQuizOpen(true)
   }
 
   const handleAdultMode = () => {
+    if (resultId === null) return
     setIsAdultMode(true)
     setIsQuizOpen(true)
   }
@@ -62,6 +75,7 @@ export default function HomePage() {
               <div className="flex flex-col sm:flex-row items-center gap-[clamp(1rem,3vw,2.5rem)] w-full max-w-3xl">
                 <Button
                   onClick={handleKidsMode}
+                  disabled={resultId === null}
                   className="
       w-full sm:w-auto
       overflow-hidden
@@ -74,6 +88,7 @@ export default function HomePage() {
       hover:from-orange-300 hover:to-pink-500
       ring-4 ring-white/20 ring-offset-2 ring-offset-transparent
       transition
+      disabled:opacity-50 disabled:cursor-not-allowed
       min-w-[240px] whitespace-nowrap
     "
                 >
@@ -82,6 +97,7 @@ export default function HomePage() {
 
                 <Button
                   onClick={handleAdultMode}
+                  disabled={resultId === null}
                   className="
       w-full sm:w-auto
       overflow-hidden
@@ -95,6 +111,7 @@ export default function HomePage() {
       text-white shadow-xl
       ring-4 ring-white/20 ring-offset-2 ring-offset-transparent
       transition
+      disabled:opacity-50 disabled:cursor-not-allowed
       min-w-[240px] whitespace-nowrap
     "
                 >
@@ -109,12 +126,14 @@ export default function HomePage() {
       </div>
 
       {/* モーダル */}
-      <QuizModal
-        isOpen={isQuizOpen}
-        onClose={() => setIsQuizOpen(false)}
-        isAdult={isAdultMode}
-        resultId={0} // TODO: Replace 0 with the actual resultId value as needed
-      />
+      {resultId !== null && (
+        <QuizModal
+          isOpen={isQuizOpen}
+          onClose={() => setIsQuizOpen(false)}
+          isAdult={isAdultMode}
+          resultId={resultId}
+        />
+      )}
     </div>
   )
 }
