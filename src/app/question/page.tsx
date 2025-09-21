@@ -22,71 +22,93 @@ export default function HomePage() {
     <div className="h-screen relative overflow-hidden">
       {/* 背景レイヤー：グラデーション */}
       <div className="absolute inset-0 -z-20 bg-gradient-to-b from-[#0b001f] to-[#33446a]" />
-      {/* 背景レイヤー：デスクトップ時の画像（グラデの上に画像） */}
-      <div className="absolute inset-0 -z-10 hidden lg:block bg-[url('/image/top_bg.png')] bg-contain bg-center bg-no-repeat" />
 
-      {/* ★ 下4分の1パネル（少し上げて下に余白） ★ */}
-      <div className="absolute bottom-0 left-0 right-0 h-1/4 z-10 lg:-translate-y-6">
-        <div className="mx-auto max-w-5xl h-full px-8">
-          <div className="h-full flex flex-col justify-center gap-5 text-white pb-8">
-            {/* 説明（白・大きめ） */}
-            <div className="text-center -translate-y-4 md:-translate-y-6">
-              <p className="text-2xl md:text-4xl leading-relaxed opacity-95 font-semibold whitespace-nowrap">
-                🍏 質問に答えて、あなただけのオリジナルのりんご飴を生み出そう 🍎
-              </p>
-              <p className="text-2xl md:text-4xl leading-relaxed opacity-95 font-semibold mt-2 whitespace-nowrap">
-                りんご飴の種類は全部で
-                <strong className="font-extrabold text-firework-gold"> 13,824 </strong>
-                通り！
-              </p>
-            </div>
+      {/* 背景レイヤー：デスクトップ時の画像（上15%カット、上端固定） */}
+      <div
+        className="absolute inset-0 -z-10 hidden lg:block bg-no-repeat"
+        style={{
+          backgroundImage: "url('/image/top-bg-re.png')",
+          backgroundSize: "100% auto",
+          backgroundPosition: "0 -15%"
+        }}
+      />
 
-
-            {/* モード切り替えボタン（横並び・強調） */}
-            <div className="flex items-center gap-4 justify-center -translate-y-2 md:-translate-y-4">
-              <Button
-                onClick={handleKidsMode}
-                className="text-3xl px-14 py-10 rounded-2xl font-bold 
-             bg-gradient-to-r from-firework-pink to-firework-gold 
-             hover:from-lime-300 hover:to-yellow-300
-             text-white shadow-2xl ring-2 ring-white/20 transition 
-             min-w-[260px]"
-              >
-                キッズモード
-              </Button>
-
-              <Button
-                onClick={handleAdultMode}
-                className="text-2xl px-12 py-10 rounded-2xl font-bold 
-                     bg-gradient-to-r from-indigo-400 via-purple-500 to-blue-600 
-                     hover:from-purple-500 hover:to-indigo-600
-                     text-white shadow-xl ring-2 ring-white/20 transition 
-                     min-w-[240px]"
-              >
-                ちょっぴり大人なモード
-              </Button>
-            </div>
-
-            {/* 小さめの統計表示（明るくカラフル） */}
-            <div className="grid grid-cols-3 gap-4 text-center">
-              <div className="p-3 rounded-xl bg-firework-pink/15 border border-firework-pink/30">
-                <div className="text-lg font-bold text-firework-pink">7</div>
-                <div className="text-[12px] opacity-90">問題数</div>
+      {/* コンテンツエリア：画面下部 30% に固定配置（中央寄せ） */}
+      <div className="absolute bottom-0 left-0 right-0 z-10 h-[35%]">
+        <div className="h-full flex flex-col justify-center">
+          <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
+            <div
+              className="
+          flex flex-col items-center 
+          text-white 
+          gap-[clamp(0.75rem,1.6vw,2rem)]   /* 全体ギャップも可変 */
+        "
+            >
+              {/* 説明テキスト */}
+              <div className="text-center space-y-[clamp(0.25rem,1vw,1rem)]">
+                <p className="whitespace-normal leading-tight font-semibold text-[clamp(1rem,2.2vw,2rem)]">
+                  🍏 質問に答えて、あなただけのオリジナルのりんご飴を生み出そう 🍎
+                </p>
+                <p className="whitespace-normal leading-tight font-semibold text-[clamp(1rem,2.2vw,2rem)]">
+                  りんご飴の種類は全部で
+                  <strong className="font-extrabold text-firework-gold">
+                    {" "}
+                    13,824{" "}
+                  </strong>
+                  通り！
+                </p>
               </div>
-              <div className="p-3 rounded-xl bg-firework-gold/15 border border-firework-gold/30">
-                <div className="text-lg font-bold text-firework-gold">3–6</div>
-                <div className="text-[12px] opacity-90">選択肢</div>
+              {/* モード切り替えボタン */}
+              <div className="flex flex-col sm:flex-row items-center gap-[clamp(1rem,3vw,2.5rem)] w-full max-w-3xl">
+                <Button
+                  onClick={handleKidsMode}
+                  className="
+      w-full sm:w-auto
+      overflow-hidden
+      !rounded-full                   /* ← 強制的に丸くする */
+      text-[clamp(1.1rem,2vw,1.6rem)]
+      px-[clamp(2rem,6vw,7rem)]
+      py-[clamp(1.25rem,3.6vw,3.5rem)]
+      font-bold
+      bg-gradient-to-r from-firework-pink to-firework-gold
+      hover:from-orange-300 hover:to-pink-500
+      ring-4 ring-white/20 ring-offset-2 ring-offset-transparent
+      transition
+      min-w-[240px] whitespace-nowrap
+    "
+                >
+                  キッズモード
+                </Button>
+
+                <Button
+                  onClick={handleAdultMode}
+                  className="
+      w-full sm:w-auto
+      overflow-hidden
+      !rounded-full                   /* ← 同上 */
+      text-[clamp(1rem,1.9vw,1.5rem)]
+      px-[clamp(2rem,5.5vw,6.5rem)]
+      py-[clamp(1.25rem,3.4vw,3.25rem)]
+      font-bold
+      bg-gradient-to-r from-indigo-400 via-purple-500 to-blue-600
+      hover:from-purple-500 hover:to-indigo-600
+      text-white shadow-xl
+      ring-4 ring-white/20 ring-offset-2 ring-offset-transparent
+      transition
+      min-w-[240px] whitespace-nowrap
+    "
+                >
+                  ちょっぴり大人なモード
+                </Button>
               </div>
-              <div className="p-3 rounded-xl bg-firework-mint/15 border border-firework-mint/30">
-                <div className="text-lg font-bold text-firework-mint">5分</div>
-                <div className="text-[12px] opacity-90">所要時間</div>
-              </div>
+
+
             </div>
           </div>
         </div>
       </div>
 
-      {/* モーダルは最上位でOK */}
+      {/* モーダル */}
       <QuizModal
         isOpen={isQuizOpen}
         onClose={() => setIsQuizOpen(false)}
