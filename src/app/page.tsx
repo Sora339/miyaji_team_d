@@ -1,9 +1,45 @@
 "use client"
 
-import Link from "next/link"
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+
 import { Button } from "@/components/ui/button"
 
 export default function HomePage() {
+  const router = useRouter()
+  const [isStarting, setIsStarting] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
+
+  const handleStart = async () => {
+    if (isStarting) return
+
+    setIsStarting(true)
+    setStartError(null)
+
+    try {
+      const response = await fetch('/api/results', {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const message = await response.text()
+        throw new Error(message || '結果データの初期化に失敗しました。')
+      }
+
+      const data = await response.json()
+
+      if (!data?.resultId) {
+        throw new Error('結果IDを取得できませんでした。')
+      }
+
+      router.push(`/question/${data.resultId}`)
+    } catch (error) {
+      console.error(error)
+      setStartError(error instanceof Error ? error.message : '結果データの生成に失敗しました。')
+      setIsStarting(false)
+    }
+  }
+
   return (
     <div className="h-screen relative overflow-hidden">
       {/* 背景レイヤー：グラデーション */}
@@ -24,8 +60,10 @@ export default function HomePage() {
         <div className="h-full flex flex-col justify-center">
           <div className="mx-auto max-w-6xl px-4 sm:px-6 lg:px-8">
             <div className="flex justify-center">
-              <Link href="/question">
+              <div className="flex flex-col items-center gap-4">
                 <Button
+                  onClick={handleStart}
+                  disabled={isStarting}
                   className="
                     overflow-hidden
                     !rounded-full
@@ -38,11 +76,17 @@ export default function HomePage() {
                     text-white shadow-2xl
                     ring-4 ring-white/20 ring-offset-2
                     transition
+                    disabled:opacity-50 disabled:cursor-not-allowed
                   "
                 >
-                  START
+                  {isStarting ? 'STARTING...' : 'START'}
                 </Button>
-              </Link>
+                {startError && (
+                  <p className="text-sm text-red-300 text-center max-w-sm">
+                    {startError}
+                  </p>
+                )}
+              </div>
             </div>
           </div>
         </div>
