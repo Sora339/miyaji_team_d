@@ -67,7 +67,7 @@ async function seed() {
                 }
             },
             {
-                content: "ペットとして買いたいのは？",
+                content: "ペットとして飼いたいのは？",
                 isAdult: false,
                 options: {
                     create: [
@@ -79,7 +79,7 @@ async function seed() {
                 }
             },
             {
-                content: "どの縁日で遊びたい？？",
+                content: "どの縁日で遊びたい？",
                 isAdult: false,
                 options: {
                     create: [
@@ -89,7 +89,92 @@ async function seed() {
                         { content: "輪投げ" }
                     ]
                 }
-            }
+            },
+            // 大人用
+            {
+                content: "一番思い出に残っている季節のイベントは？",
+                isAdult: true,
+                options: {
+                    create: [
+                        { content: "初恋の夏祭り" },
+                        { content: "大学の文化祭" },
+                        { content: "成人式" },
+                        { content: "クリスマス" },
+                        { content: "中高の同窓会" },
+                        { content: "家族とのお正月" }
+                    ]
+                }
+            },
+            {
+                content: "休日の過ごし方は？",
+                isAdult: true,
+                options: {
+                    create: [
+                        { content: "家でのんびり" },
+                        { content: "ドライブ・旅行" },
+                        { content: "飲み歩き" }
+                    ]
+                }
+            },
+            {
+                content: "好きな季節の楽しみは？",
+                isAdult: true,
+                options: {
+                    create: [
+                        { content: "春（花見）" },
+                        { content: "夏（海・花火）" },
+                        { content: "秋（紅葉・食欲）" },
+                        { content: "冬（鍋・温泉）" }
+                    ]
+                }
+            },
+            {
+                content: "屋台・縁日でまず手に取るものは？",
+                isAdult: true,
+                options: {
+                    create: [
+                        { content: "焼き鳥" },
+                        { content: "たこ焼き" },
+                        { content: "ビール" },
+                        { content: "かき氷" }
+                    ]
+                }
+            },
+            {
+                content: "誰と過ごした時間が一番印象に残ってる？",
+                isAdult: true,
+                options: {
+                    create: [
+                        { content: "学生時代の友達" },
+                        { content: "初恋の人" },
+                        { content: "家族" }
+                    ]
+                }
+            },
+            {
+                content: "ペットとして飼いたいのは？",
+                isAdult: true,
+                options: {
+                    create: [
+                        { content: "犬" },
+                        { content: "猫" },
+                        { content: "金魚" },
+                        { content: "小鳥" }
+                    ]
+                }
+            },
+            {
+                content: "余暇にやりたいことは？",
+                isAdult: true,
+                options: {
+                    create: [
+                        { content: "ゴルフ" },
+                        { content: "カラオケ" },
+                        { content: "温泉旅行" },
+                        { content: "花火大会" }
+                    ]
+                }
+            },
         ];
 
         // データを順番に作成
