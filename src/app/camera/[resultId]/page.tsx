@@ -11,7 +11,7 @@ type FingerIndices = {
 }
 
 type HandsResults = {
-  multiHandLandmarks?: HandLandmarks[]
+  multiHandmarks?: HandLandmarks[]
 }
 
 interface HandsInstance {
@@ -119,7 +119,28 @@ function getHandCenter(landmarks: HandLandmarks) {
   }
 }
 
-function drawHand(_context: CanvasRenderingContext2D, _landmarks: HandLandmarks) {}
+function drawHandOutline(context: CanvasRenderingContext2D, landmarks: HandLandmarks, canvasWidth: number, canvasHeight: number) {
+  if (landmarks.length < 21) return;
+
+  const connections = [
+    [0, 1], [1, 2], [2, 3], [3, 4], // 親指
+    [0, 5], [5, 6], [6, 7], [7, 8], // 人差し指
+    [9, 10], [10, 11], [11, 12], // 中指
+    [13, 14], [14, 15], [15, 16], // 薬指
+    [0, 17], [17, 18], [18, 19], [19, 20], // 小指
+    [5, 9], [9, 13], [13, 17], // 手のひら
+  ];
+
+  context.beginPath();
+  
+  // 各接続ポイントを結ぶ
+  for (const [start, end] of connections) {
+    context.moveTo(landmarks[start].x * canvasWidth, landmarks[start].y * canvasHeight);
+    context.lineTo(landmarks[end].x * canvasWidth, landmarks[end].y * canvasHeight);
+  }
+  
+  context.closePath();
+}
 
 export default function CameraPage() {
   const params = useParams<{ resultId: string }>()
@@ -128,14 +149,19 @@ export default function CameraPage() {
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const overlayImageRef = useRef<HTMLImageElement | null>(null)
+  const backgroundImageRef = useRef<HTMLImageElement | null>(null)
   const overlayReadyRef = useRef(false)
+  const backgroundReadyRef = useRef(false)
   const aspectRatioRef = useRef(16 / 9)
 
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [overlayError, setOverlayError] = useState<string | null>(null)
+  const [backgroundError, setBackgroundError] = useState<string | null>(null)
   const [isReady, setIsReady] = useState(false)
   const [isOverlayLoading, setIsOverlayLoading] = useState(true)
+  const [isBackgroundLoading, setIsBackgroundLoading] = useState(true)
   const [overlayReady, setOverlayReady] = useState(false)
+  const [backgroundReady, setBackgroundReady] = useState(false)
   const [overlayUrl, setOverlayUrl] = useState<string | null>(null)
   const [fistCount, setFistCount] = useState(0)
   const [isCapturing, setIsCapturing] = useState(false)
@@ -145,6 +171,10 @@ export default function CameraPage() {
   useEffect(() => {
     overlayReadyRef.current = overlayReady
   }, [overlayReady])
+
+  useEffect(() => {
+    backgroundReadyRef.current = backgroundReady
+  }, [backgroundReady])
 
   useEffect(() => {
     if (!resultId) {
@@ -206,6 +236,35 @@ export default function CameraPage() {
       controller.abort()
     }
   }, [resultId])
+
+  useEffect(() => {
+    const fireworkImageUrl = '/image/カメラの背景.jpg'
+    const controller = new AbortController()
+
+    setBackgroundError(null)
+    setBackgroundReady(false)
+    backgroundImageRef.current = null
+    setIsBackgroundLoading(true)
+
+    const image = new Image()
+    image.crossOrigin = 'anonymous'
+    image.onload = () => {
+      if (controller.signal.aborted) return
+      backgroundImageRef.current = image
+      setBackgroundReady(true)
+      setIsBackgroundLoading(false)
+    }
+    image.onerror = () => {
+      if (controller.signal.aborted) return
+      setBackgroundError('背景画像の読み込みに失敗しました。')
+      setIsBackgroundLoading(false)
+    }
+    image.src = fireworkImageUrl
+
+    return () => {
+      controller.abort()
+    }
+  }, [])
 
   useEffect(() => {
     let active = true
@@ -280,12 +339,31 @@ export default function CameraPage() {
         context.save()
         context.clearRect(0, 0, canvas.width, canvas.height)
 
+        if (backgroundReadyRef.current && backgroundImageRef.current) {
+          const backgroundImg = backgroundImageRef.current
+          context.drawImage(backgroundImg, 0, 0, canvas.width, canvas.height)
+        } else {
+          context.fillStyle = '#000'
+          context.fillRect(0, 0, canvas.width, canvas.height)
+        }
+
         const allLandmarks = results.multiHandLandmarks ?? []
+        
+        context.save()
+        for (const landmarks of allLandmarks) {
+          if (landmarks.length > 0) {
+            drawHandOutline(context, landmarks, canvas.width, canvas.height);
+          }
+        }
+        context.clip()
+
+        context.drawImage(currentVideo, 0, 0, canvas.width, canvas.height)
+        
+        context.restore()
+
         let detectedFists = 0
 
         for (const landmarks of allLandmarks) {
-          drawHand(context, landmarks)
-
           if (isFist(landmarks)) {
             detectedFists += 1
             const center = getHandCenter(landmarks)
@@ -337,7 +415,7 @@ export default function CameraPage() {
       }
       if (stream) stream.getTracks().forEach((track) => track.stop())
     }
-  }, [])
+  }, [backgroundReady, overlayReady])
 
   return (
     <div
@@ -368,7 +446,12 @@ export default function CameraPage() {
           playsInline
           muted
           autoPlay
-          style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            display: 'none',
+          }}
         />
         <canvas
           ref={canvasRef}
@@ -385,17 +468,16 @@ export default function CameraPage() {
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', alignItems: 'center' }}>
         {cameraError && <p style={{ color: '#dc2626' }}>{cameraError}</p>}
         {overlayError && <p style={{ color: '#dc2626' }}>{overlayError}</p>}
-        {!cameraError && !overlayError && (
+        {backgroundError && <p style={{ color: '#dc2626' }}>{backgroundError}</p>}
+        {!cameraError && !overlayError && !backgroundError && (
           <p style={{ color: fistCount > 0 ? '#dc2626' : '#059669', fontWeight: 600 }}>
-            {isReady
+            {isReady && overlayReady && backgroundReady
               ? fistCount > 0
                 ? `握りこぶしを${fistCount}つ検知しました`
-                : overlayReady
-                ? '手を握ると画像が表示されます'
-                : isOverlayLoading
+                : '手を握ると画像が表示されます'
+              : isOverlayLoading || isBackgroundLoading
                 ? '画像を読み込んでいます…'
-                : '画像を読み込めませんでした'
-              : 'カメラを起動しています…'}
+                : 'カメラを起動しています…'}
           </p>
         )}
         {overlayUrl && overlayReady && (
@@ -435,8 +517,7 @@ export default function CameraPage() {
               setCaptureMessage('画像の生成に失敗しました。')
               return
             }
-
-            context.drawImage(video, 0, 0, videoWidth, videoHeight)
+            
             context.drawImage(overlayCanvas, 0, 0, videoWidth, videoHeight)
 
             setIsCapturing(true)
@@ -472,17 +553,17 @@ export default function CameraPage() {
               }
             }, 'image/png')
           }}
-          disabled={isCapturing || !!cameraError || !!overlayError || !isReady}
+          disabled={isCapturing || !!cameraError || !!overlayError || !!backgroundError || !isReady || !backgroundReady}
           style={{
             marginTop: '0.5rem',
             padding: '0.75rem 1.5rem',
             borderRadius: '9999px',
             border: 'none',
-            backgroundColor: isCapturing || cameraError || overlayError || !isReady ? '#9ca3af' : '#2563eb',
+            backgroundColor: isCapturing || cameraError || overlayError || backgroundError || !isReady || !backgroundReady ? '#9ca3af' : '#2563eb',
             color: '#fff',
             fontSize: '1rem',
             fontWeight: 600,
-            cursor: isCapturing || cameraError || overlayError || !isReady ? 'not-allowed' : 'pointer',
+            cursor: isCapturing || cameraError || overlayError || backgroundError || !isReady || !backgroundReady ? 'not-allowed' : 'pointer',
             transition: 'background-color 0.2s ease',
           }}
         >

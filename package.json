@@ -13,12 +13,13 @@
     "prisma:seed": "tsx prisma/seed.ts",
     "supabase:create-storage": "node scripts/setup-supabase-storage.mjs"
   },
-  "prisma":{
-    "seed":"tsx prisma/seed.ts"
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   },
   "dependencies": {
     "@mediapipe/drawing_utils": "^0.3.1675466124",
     "@mediapipe/hands": "^0.4.1675469240",
+    "@mediapipe/selfie_segmentation": "^0.1.1675465747",
     "@prisma/client": "^6.0.1",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-progress": "^1.1.7",
