@@ -1,7 +1,17 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
+
+import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
 
 type HandLandmarks = Array<{ x: number; y: number; z: number; visibility?: number }>
 
@@ -124,12 +134,14 @@ function drawHand(_context: CanvasRenderingContext2D, _landmarks: HandLandmarks)
 export default function CameraPage() {
   const params = useParams<{ resultId: string }>()
   const resultId = params?.resultId
+  const router = useRouter()
 
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const overlayImageRef = useRef<HTMLImageElement | null>(null)
   const overlayReadyRef = useRef(false)
   const aspectRatioRef = useRef(16 / 9)
+  const capturedBlobRef = useRef<Blob | null>(null)
 
   const [cameraError, setCameraError] = useState<string | null>(null)
   const [overlayError, setOverlayError] = useState<string | null>(null)
@@ -141,6 +153,17 @@ export default function CameraPage() {
   const [isCapturing, setIsCapturing] = useState(false)
   const [captureMessage, setCaptureMessage] = useState<string | null>(null)
   const [aspectRatio, setAspectRatio] = useState(16 / 9)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [isSavingPhoto, setIsSavingPhoto] = useState(false)
+
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl)
+      }
+    }
+  }, [previewUrl])
 
   useEffect(() => {
     overlayReadyRef.current = overlayReady
@@ -401,9 +424,9 @@ export default function CameraPage() {
         {overlayUrl && overlayReady && (
           <p style={{ fontSize: '0.875rem', color: '#6b7280' }}>表示中の画像: {overlayUrl}</p>
         )}
-        <button
+        <Button
           onClick={async () => {
-            if (isCapturing) return
+            if (isCapturing || isSavingPhoto) return
 
             setCaptureMessage(null)
 
@@ -441,59 +464,125 @@ export default function CameraPage() {
 
             setIsCapturing(true)
 
-            snapshotCanvas.toBlob(async (blob) => {
+            snapshotCanvas.toBlob((blob) => {
               if (!blob) {
                 setCaptureMessage('画像の生成に失敗しました。')
                 setIsCapturing(false)
                 return
               }
 
-              try {
-                const formData = new FormData()
-                formData.append('file', blob, 'photo.png')
-
-                const response = await fetch(`/api/results/${resultId}/photo`, {
-                  method: 'POST',
-                  body: formData,
-                })
-
-                if (!response.ok) {
-                  const message = await response.text()
-                  throw new Error(message || '写真の保存に失敗しました。')
-                }
-
-                await response.json()
-                setCaptureMessage('写真を保存しました。')
-              } catch (error) {
-                console.error(error)
-                setCaptureMessage(error instanceof Error ? error.message : '写真の保存に失敗しました。')
-              } finally {
-                setIsCapturing(false)
+              if (previewUrl) {
+                URL.revokeObjectURL(previewUrl)
               }
+              capturedBlobRef.current = blob
+              const url = URL.createObjectURL(blob)
+              setPreviewUrl(url)
+              setIsConfirmOpen(true)
+              setIsCapturing(false)
             }, 'image/png')
           }}
-          disabled={isCapturing || !!cameraError || !!overlayError || !isReady}
-          style={{
-            marginTop: '0.5rem',
-            padding: '0.75rem 1.5rem',
-            borderRadius: '9999px',
-            border: 'none',
-            backgroundColor: isCapturing || cameraError || overlayError || !isReady ? '#9ca3af' : '#2563eb',
-            color: '#fff',
-            fontSize: '1rem',
-            fontWeight: 600,
-            cursor: isCapturing || cameraError || overlayError || !isReady ? 'not-allowed' : 'pointer',
-            transition: 'background-color 0.2s ease',
-          }}
+          disabled={isCapturing || isSavingPhoto || !!cameraError || !!overlayError || !isReady}
+          className="rounded-full bg-blue-600 hover:bg-blue-500 px-6 py-3 text-lg font-semibold text-white disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          {isCapturing ? '保存中…' : '写真を撮る'}
-        </button>
+          {isCapturing ? '生成中…' : '写真を撮る'}
+        </Button>
         {captureMessage && (
           <p style={{ fontSize: '0.875rem', color: captureMessage.includes('失敗') ? '#dc2626' : '#059669' }}>
             {captureMessage}
           </p>
         )}
       </div>
+
+      <Dialog
+        open={isConfirmOpen}
+        onOpenChange={(open) => {
+          if (!open && !isSavingPhoto) {
+            if (previewUrl) {
+              URL.revokeObjectURL(previewUrl)
+            }
+            capturedBlobRef.current = null
+            setPreviewUrl(null)
+            setIsConfirmOpen(false)
+          }
+        }}
+      >
+        <DialogContent className="max-w-xl">
+          <DialogHeader>
+            <DialogTitle>この写真でよろしいですか？</DialogTitle>
+            <DialogDescription>確認して問題なければ保存してダウンロード画面へ進みます。</DialogDescription>
+          </DialogHeader>
+          {previewUrl && (
+            <div className="w-full overflow-hidden rounded-2xl border border-border">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={previewUrl} alt="撮影した写真" className="w-full h-auto" />
+            </div>
+          )}
+          {captureMessage && captureMessage.includes('失敗') && (
+            <p className="text-sm text-red-500">{captureMessage}</p>
+          )}
+          <DialogFooter className="sm:justify-between">
+            <Button
+              variant="outline"
+              onClick={() => {
+                if (previewUrl) {
+                  URL.revokeObjectURL(previewUrl)
+                }
+                capturedBlobRef.current = null
+                setPreviewUrl(null)
+                setIsConfirmOpen(false)
+              }}
+              disabled={isSavingPhoto}
+            >
+              撮り直す
+            </Button>
+            <Button
+              onClick={async () => {
+                if (isSavingPhoto || !capturedBlobRef.current || !resultId) return
+                setCaptureMessage(null)
+                setIsSavingPhoto(true)
+
+                try {
+                  const formData = new FormData()
+                  formData.append('file', capturedBlobRef.current, 'photo.png')
+
+                  const response = await fetch(`/api/results/${resultId}/photo`, {
+                    method: 'POST',
+                    body: formData,
+                  })
+
+                  if (!response.ok) {
+                    const message = await response.text()
+                    throw new Error(message || '写真の保存に失敗しました。')
+                  }
+
+                  const data = await response.json()
+                  if (!data?.photoUrl) {
+                    throw new Error('保存された写真のURLを取得できませんでした。')
+                  }
+
+                  if (previewUrl) {
+                    URL.revokeObjectURL(previewUrl)
+                  }
+                  capturedBlobRef.current = null
+                  setPreviewUrl(null)
+                  setIsConfirmOpen(false)
+                  setCaptureMessage('写真を保存しました。')
+                  router.push(`/download/${resultId}`)
+                } catch (error) {
+                  console.error(error)
+                  setCaptureMessage(error instanceof Error ? error.message : '写真の保存に失敗しました。')
+                } finally {
+                  setIsSavingPhoto(false)
+                }
+              }}
+              disabled={isSavingPhoto}
+              className="bg-firework-gold hover:bg-amber-400 text-white"
+            >
+              {isSavingPhoto ? '保存中…' : 'これでOK'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

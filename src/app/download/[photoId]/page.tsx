@@ -1,4 +1,7 @@
+import { notFound } from "next/navigation"
 import QRCode from "qrcode"
+
+import { prisma } from "@/lib/prisma"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -6,49 +9,92 @@ export const dynamic = "force-dynamic"
 type Props = { params: { photoId: string } }
 
 export default async function DownloadPage({ params }: Props) {
-  const photoId = params.photoId
+  const { photoId } = await Promise.resolve(params)
+  const resultId = Number(photoId)
 
-  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "http://localhost:3000"
-  const payload = `${base}/download/${encodeURIComponent(photoId)}`
+  if (!Number.isFinite(resultId)) {
+    notFound()
+  }
 
-  // SVG生成
-  const svg = await QRCode.toString(payload, {
-    type: "svg",
-    margin: 1,
-    errorCorrectionLevel: "M",
-    width: 256,
+  const result = await prisma.results.findUnique({
+    where: { id: resultId },
+    select: {
+      photoUrl: true,
+      appleCandyUrl: true,
+    },
   })
-  const svgDataUrl = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
 
-  // PNG生成
-  const pngBuffer = await QRCode.toBuffer(payload, {
-    type: "png",
+  if (!result || !result.photoUrl) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center gap-4 bg-slate-950 px-4 py-12 text-white">
+        <h1 className="text-3xl font-bold">写真が見つかりませんでした</h1>
+        <p className="text-center text-slate-300">
+          撮影した写真がまだ保存されていないようです。カメラ画面で撮影し直してください。
+        </p>
+      </main>
+    )
+  }
+
+  const qrDataUrl = await QRCode.toDataURL(result.photoUrl, {
     margin: 1,
-    width: 256,
+    width: 512,
   })
-  const pngBase64 = pngBuffer.toString("base64")
-  const pngDataUrl = `data:image/png;base64,${pngBase64}`
 
   return (
-    <main style={{ padding: 24 }}>
-      <h1>QR for: {photoId}</h1>
+    <main className="min-h-screen bg-slate-950 px-6 py-12 text-white">
+      <div className="mx-auto flex max-w-3xl flex-col items-center gap-8">
+        <header className="text-center space-y-3">
+          <h1 className="text-3xl font-bold">りんご飴フォト ダウンロード</h1>
+          <p className="text-sm text-slate-300">
+            下のQRコードをスマートフォンで読み取って、撮影した写真をダウンロードしてください。
+          </p>
+        </header>
 
-      <h2>SVG</h2>
-      {/* SVGは直接埋め込み */}
-      <div dangerouslySetInnerHTML={{ __html: svg }} />
-      <p>
-        <a href={svgDataUrl} download={`qr-${photoId}.svg`}>
-          SVGをダウンロード
-        </a>
-      </p>
+        <section className="flex flex-col items-center gap-5">
+          <div className="rounded-3xl bg-white p-4 shadow-2xl">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={qrDataUrl}
+              alt="撮影した写真をダウンロードするためのQRコード"
+              className="h-64 w-64 object-contain"
+            />
+          </div>
+          <a
+            href={result.photoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-full bg-firework-gold px-6 py-3 text-lg font-semibold text-slate-900 shadow-lg transition hover:bg-yellow-300"
+          >
+            直接ダウンロードページを開く
+          </a>
+        </section>
 
-      <h2>PNG</h2>
-      <img src={pngDataUrl} alt="QR PNG" width={256} height={256} />
-      <p>
-        <a href={pngDataUrl} download={`qr-${photoId}.png`}>
-          PNGをダウンロード
-        </a>
-      </p>
+        <section className="w-full rounded-3xl border border-white/10 bg-white/5 p-6">
+          <h2 className="text-xl font-semibold mb-3">撮影した写真</h2>
+          <div className="relative w-full overflow-hidden rounded-2xl bg-slate-900">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={result.photoUrl}
+              alt="撮影した写真"
+              className="h-full w-full object-contain"
+            />
+          </div>
+        </section>
+
+        {result.appleCandyUrl && (
+          <section className="w-full rounded-3xl border border-white/10 bg-white/5 p-6">
+            <h2 className="text-xl font-semibold mb-3">あなたのりんご飴</h2>
+            <div className="relative w-full overflow-hidden rounded-2xl bg-slate-900">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={result.appleCandyUrl}
+                alt="生成されたりんご飴"
+                className="h-full w-full object-contain"
+              />
+            </div>
+          </section>
+        )}
+      </div>
     </main>
   )
 }
