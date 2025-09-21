@@ -5,20 +5,31 @@ export async function GET(request: Request) {
     try {
         // URLからクエリパラメータを取得
         const { searchParams } = new URL(request.url)
-        const isAdult = searchParams.get('isAdult') === 'true'
+        const isAdultParam = searchParams.get('isAdult')
+        const isAdult = isAdultParam === 'true'
 
         console.log('Fetching questions with isAdult:', isAdult)
 
-        // 質問をデータベースから取得
+        // モードに合わせて質問を取得
         const questions = await prisma.questions.findMany({
+            where: {
+                isAdult
+            },
             include: {
-                options: true
+                options: {
+                    orderBy: {
+                        id: 'asc'
+                    }
+                }
+            },
+            orderBy: {
+                id: 'asc'
             }
         })
 
         console.log('Found questions:', questions)
 
-        if (!questions || questions.length === 0) {
+        if (questions.length === 0) {
             return NextResponse.json({
                 success: false,
                 error: 'No questions found'
@@ -29,7 +40,10 @@ export async function GET(request: Request) {
         const formattedQuestions = questions.map(q => ({
             id: q.id,
             question: q.content,
-            options: q.options.map(o => o.content)
+            options: q.options.map(o => ({
+                id: o.id,
+                content: o.content
+            }))
         }))
 
         console.log('Formatted questions:', formattedQuestions)

@@ -1,6 +1,8 @@
 // src/app/api/results/survey-upload/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 
+import { prisma } from '@/lib/prisma'
+
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
@@ -14,23 +16,36 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // ここで実際のDBへの保存処理やストレージへの保存を行う
-        // 例: const resultId = await saveSurveyResults({ answers, totalQuestions, questions })
+        if (!answers.every(answerId => typeof answerId === 'number')) {
+            return NextResponse.json(
+                { error: 'Answers must contain option IDs as numbers' },
+                { status: 400 }
+            )
+        }
 
-        // テスト用のサンプルデータ生成
-        const resultId = `survey-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+        // 集計のために結果を保存
+        const result = await prisma.results.create({
+            data: {
+                answers,
+            },
+            select: {
+                id: true,
+                answers: true,
+            }
+        })
 
         console.log('Survey results saved:', {
-            resultId,
+            resultId: result.id,
             totalQuestions,
             answersCount: answers.length,
-            answers
+            answers: result.answers,
+            questions,
         })
 
         // 成功レスポンス
         return NextResponse.json({
             success: true,
-            resultId,
+            resultId: result.id,
             message: 'アンケート回答が正常に保存されました'
         })
 
