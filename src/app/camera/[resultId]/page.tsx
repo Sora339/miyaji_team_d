@@ -302,7 +302,7 @@ export default function CameraPage() {
               const drawHeight = Math.max(canvas.height * 0.38, 1)
 
               context.save()
-              context.translate(posX, posY - drawHeight * 0.7)
+              context.translate(posX, posY - drawHeight * 0.74)
               context.drawImage(overlayImg, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight)
               context.restore()
             }
