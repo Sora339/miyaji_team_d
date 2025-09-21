@@ -4,6 +4,11 @@ const prisma = new PrismaClient();
 
 async function seed() {
     try {
+        // 前回のデータを全削除しIDをリセット
+        await prisma.$executeRawUnsafe(
+            'TRUNCATE TABLE "options", "questions" RESTART IDENTITY CASCADE;'
+        );
+
         // 質問と選択肢のデータ
         const questionsData = [
             {

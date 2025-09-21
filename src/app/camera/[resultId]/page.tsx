@@ -173,11 +173,8 @@ export default function CameraPage() {
         }
 
         const data = await response.json()
-        const url: string | null = data?.result?.appleCandyUrl ?? null
-
-        if (!url) {
-          throw new Error('保存された画像URLが見つかりません。')
-        }
+        const fallbackUrl = '/image/base/red_origin.png'
+        const url: string = data?.result?.appleCandyUrl || fallbackUrl
 
         if (controller.signal.aborted) return
 

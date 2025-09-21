@@ -7,10 +7,15 @@ import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
 import { Star, X } from "lucide-react"
 
+interface QuestionOption {
+    id: number
+    content: string
+}
+
 interface Question {
     id: number
     question: string
-    options: string[]
+    options: QuestionOption[]
 }
 
 interface QuizModalProps {
@@ -25,7 +30,7 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
     const [loading, setLoading] = useState(false)
     const [loadError, setLoadError] = useState<string | null>(null)
     const [currentQuestion, setCurrentQuestion] = useState(0)
-    const [selectedAnswer, setSelectedAnswer] = useState<number | null>(null)
+    const [selectedOptionId, setSelectedOptionId] = useState<number | null>(null)
     const [showResultButton, setShowResultButton] = useState(false)
     const [showFinalResult, setShowFinalResult] = useState(false)
     const [answers, setAnswers] = useState<number[]>([])
@@ -71,7 +76,7 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
         if (isOpen) {
             // リセット
             setCurrentQuestion(0)
-            setSelectedAnswer(null)
+            setSelectedOptionId(null)
             setShowResultButton(false)
             setShowFinalResult(false)
             setAnswers([])
@@ -133,19 +138,19 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
         )
     }
 
-    const handleAnswerSelect = (answerIndex: number) => {
-        setSelectedAnswer(answerIndex)
+    const handleAnswerSelect = (optionId: number) => {
+        setSelectedOptionId(optionId)
     }
 
     const handleNext = () => {
-        if (selectedAnswer === null) return
+        if (selectedOptionId === null) return
 
-        const newAnswers = [...answers, selectedAnswer]
+        const newAnswers = [...answers, selectedOptionId]
         setAnswers(newAnswers)
 
         if (currentQuestion < questions.length - 1) {
             setCurrentQuestion(currentQuestion + 1)
-            setSelectedAnswer(null)
+            setSelectedOptionId(null)
         } else {
             setShowResultButton(true)
         }
@@ -247,12 +252,12 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                                 </div>
 
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-                                    {currentQ.options.map((option, index) => {
-                                        const isSelected = selectedAnswer === index
+                                    {currentQ.options.map((option) => {
+                                        const isSelected = selectedOptionId === option.id
                                         return (
                                             <Button
-                                                key={index}
-                                                onClick={() => handleAnswerSelect(index)}
+                                                key={option.id}
+                                                onClick={() => handleAnswerSelect(option.id)}
                                                 aria-selected={isSelected}
                                                 className={`p-6 h-auto justify-center text-center transition-all duration-200 cute-button border-2 
           focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-firework-mint/30
@@ -273,7 +278,7 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                                                             : "text-gray-900"
                                                         }`}
                                                 >
-                                                    {option}
+                                                    {option.content}
                                                 </span>
                                             </Button>
                                         )
@@ -283,8 +288,8 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
 
                                 <div className="pt-6">
                                     <Button
-                                        onClick={handleNext}
-                                        disabled={selectedAnswer === null}
+                                    onClick={handleNext}
+                                    disabled={selectedOptionId === null}
                                         size="lg"
                                         className="px-10 py-4 cute-button bg-gradient-to-r from-firework-gold to-firework-pink hover:from-firework-pink hover:to-firework-purple text-white font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
