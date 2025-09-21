@@ -13,12 +13,10 @@ interface Question {
     options: string[]
 }
 
-
-
 interface QuizModalProps {
     isOpen: boolean
     onClose: () => void
-    isAdult?: boolean // 成人向けコンテンツのフラグ
+    isAdult?: boolean // 大人向けコンテンツのフラグ
 }
 
 export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) {
@@ -90,7 +88,9 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                     <DialogTitle className="sr-only">アンケート質問</DialogTitle>
                     <div className="flex flex-col items-center justify-center py-16 space-y-4">
                         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-firework-gold"></div>
-                        <p className="text-xl text-muted-foreground">質問を読み込み中...</p>
+                        <p className="text-xl text-white">
+                            {isAdult ? '大人向けの質問' : 'キッズ向けの質問'}を読み込み中...
+                        </p>
                     </div>
                 </DialogContent>
             </Dialog>
@@ -102,7 +102,7 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
             <Dialog open={isOpen} onOpenChange={onClose}>
                 <DialogContent className="max-w-4xl w-full mx-4 bg-card border-2 border-firework-pink/30 firework-bg rounded-3xl shadow-2xl modal-transition">
                     <div className="flex flex-col items-center justify-center py-16 space-y-6">
-                        <div className="text-6xl">❌</div>
+                        <div className="text-6xl">⚠️</div>
                         <h2 className="text-2xl font-bold text-foreground">エラーが発生しました</h2>
                         <p className="text-red-400">{loadError}</p>
                         <Button onClick={onClose} className="mt-4 bg-firework-gold text-white">
@@ -121,7 +121,9 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                     <div className="flex flex-col items-center justify-center py-16 space-y-6">
                         <div className="text-6xl">📝</div>
                         <h2 className="text-2xl font-bold text-foreground">質問がありません</h2>
-                        <p className="text-muted-foreground">現在利用可能な質問がありません。</p>
+                        <p className="text-muted-foreground">
+                            現在{isAdult ? '大人向け' : 'キッズ向け'}の質問が利用できません。
+                        </p>
                         <Button onClick={onClose} className="mt-4 bg-firework-gold text-white">
                             閉じる
                         </Button>
@@ -169,11 +171,12 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                 body: JSON.stringify({
                     answers,
                     totalQuestions: questions.length,
+                    isAdult, // モード情報も送信
                     questions: questions.map(q => ({
                         id: q.id,
                         question: q.question
                     }))
-                }),
+                })
             })
 
             if (!response.ok) {
@@ -204,6 +207,16 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
             <DialogContent className="max-w-4xl w-full mx-4 bg-card border-2 border-firework-pink/30 firework-bg rounded-3xl shadow-2xl modal-transition">
                 <DialogTitle className="sr-only">アンケート質問</DialogTitle>
                 <div className="relative">
+                    {/* モード表示バッジ */}
+                    <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
+                        <div className={`px-4 py-2 rounded-full text-sm font-bold ${isAdult
+                            ? 'bg-gradient-to-r from-indigo-400 via-purple-500 to-blue-600 text-white'
+                            : 'bg-gradient-to-r from-firework-pink to-firework-gold text-white'
+                            }`}>
+                            {isAdult ? '🎭 大人モード' : '🧸 キッズモード'}
+                        </div>
+                    </div>
+
                     <Button
                         variant="ghost"
                         size="icon"
@@ -214,40 +227,59 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                     </Button>
 
                     {!showResultButton && !showFinalResult ? (
-                        <div className="space-y-8 py-8 px-6">
+                        <div className="space-y-8 py-8 px-6 pt-12">
                             <div className="space-y-4">
                                 <div className="flex justify-between items-center text-sm">
-                                    <span className="text-firework-gold font-semibold flex items-center gap-2">
+                                    <span className="text-white font-semibold flex items-center gap-2">
                                         <Star className="h-4 w-4" />
-                                        問題 {currentQuestion + 1} / {questions.length}
+                                        質問 {currentQuestion + 1} / {questions.length}
                                     </span>
-                                    <span className="text-firework-mint font-bold">{Math.round(progress)}%</span>
+                                    <span className="text-white font-bold">{Math.round(progress)}%</span>
                                 </div>
                                 <Progress value={progress} className="h-3 bg-firework-navy/30 rounded-full overflow-hidden" />
                             </div>
 
                             <div className="text-center space-y-8">
                                 <div className="relative">
-                                    <h2 className="text-2xl md:text-3xl font-bold text-balance leading-relaxed text-foreground">
+                                    <h2 className="text-2xl md:text-3xl font-bold text-balance leading-relaxed text-white">
                                         {currentQ.question}
                                     </h2>
                                 </div>
 
                                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4 max-w-4xl mx-auto">
-                                    {currentQ.options.map((option, index) => (
-                                        <Button
-                                            key={index}
-                                            variant={selectedAnswer === index ? "default" : "outline"}
-                                            className={`p-6 h-auto text-center justify-center transition-all duration-300 cute-button border-2 ${selectedAnswer === index
-                                                    ? "bg-gradient-to-r from-firework-pink to-firework-gold text-white border-firework-gold selection-pulse"
-                                                    : "hover:bg-firework-blue/20 hover:border-firework-blue border-firework-mint/50"
-                                                }`}
-                                            onClick={() => handleAnswerSelect(index)}
-                                        >
-                                            <span className="text-base font-medium">{option}</span>
-                                        </Button>
-                                    ))}
+                                    {currentQ.options.map((option, index) => {
+                                        const isSelected = selectedAnswer === index
+                                        return (
+                                            <Button
+                                                key={index}
+                                                onClick={() => handleAnswerSelect(index)}
+                                                aria-selected={isSelected}
+                                                className={`p-6 h-auto justify-center text-center transition-all duration-200 cute-button border-2 
+          focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-firework-mint/30
+
+          ${isSelected
+                                                        /* 選択：黒背景＋カラフル文字（ボタンの文字色は透明にしない） */
+                                                        ? "bg-black border-firework-gold hover:bg-black active:bg-black"
+                                                        /* 未選択：白背景＋濃い文字、ホバーで少しだけ暗く＆枠を強調 */
+                                                        : "bg-white text-gray-900 border-firework-mint/50 hover:bg-gradient-to-r hover:from-pink-100 hover:via-yellow-100 hover:to-lime-100  hover:text-gray-950 hover:border-firework-blue"
+                                                    }`}
+                                            >
+                                                <span
+                                                    className={`text-xl font-bold leading-snug
+            ${isSelected
+                                                            /* 選択時の文字：カラフルグラデーションで視認性UP（黒背景に映える） */
+                                                            ? "text-transparent bg-clip-text bg-gradient-to-r from-firework-pink via-firework-gold to-firework-mint"
+                                                            /* 未選択文字：濃いグレーで白背景でも読みやすい */
+                                                            : "text-gray-900"
+                                                        }`}
+                                                >
+                                                    {option}
+                                                </span>
+                                            </Button>
+                                        )
+                                    })}
                                 </div>
+
 
                                 <div className="pt-6">
                                     <Button
@@ -256,7 +288,7 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                                         size="lg"
                                         className="px-10 py-4 cute-button bg-gradient-to-r from-firework-gold to-firework-pink hover:from-firework-pink hover:to-firework-purple text-white font-bold text-lg disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
-                                        {currentQuestion === questions.length - 1 ? "完了" : "次の問題 →"}
+                                        {currentQuestion === questions.length - 1 ? "完了" : "次の質問 →"}
                                     </Button>
                                 </div>
                             </div>
@@ -265,8 +297,8 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                         <div className="space-y-8 py-16 text-center">
                             <div className="space-y-6">
                                 <div className="text-6xl">🎉</div>
-                                <h2 className="text-3xl md:text-4xl font-bold text-balance text-foreground">全質問回答完了！</h2>
-                                <p className="text-xl text-muted-foreground">お疲れさまでした！回答を確認しましょう。</p>
+                                <h2 className="text-3xl md:text-4xl font-bold text-balance text-white">全質問回答完了！</h2>
+                                <p className="text-xl text-white">お疲れさまでした！さぁどんなりんご飴ができているかな？</p>
                             </div>
 
                             <div className="pt-6">
@@ -275,7 +307,7 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                                     size="lg"
                                     className="px-12 py-4 cute-button bg-gradient-to-r from-firework-gold to-firework-pink hover:from-firework-pink hover:to-firework-purple text-white font-bold text-xl"
                                 >
-                                    🎊 結果を見る
+                                    結果を見る🍭
                                 </Button>
                             </div>
                         </div>
@@ -291,7 +323,7 @@ export function QuizModal({ isOpen, onClose, isAdult = false }: QuizModalProps) 
                                     <span className="text-3xl text-muted-foreground">問</span>
                                 </div>
                                 <p className="text-2xl font-semibold text-firework-gold">
-                                    全ての質問にお答えいただきありがとうございました
+                                    {isAdult ? '大人モード' : 'キッズモード'}の全ての質問にお答えいただきありがとうございました
                                 </p>
 
                                 <div className="text-lg text-muted-foreground">
