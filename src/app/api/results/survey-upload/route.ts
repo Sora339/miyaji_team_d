@@ -129,6 +129,16 @@ export async function POST(request: NextRequest) {
             }
         })
 
+        // 同じ組み合わせで作成済みの件数を集計 (appleCandyUrlが存在するもののみ)
+        const sameCount = await prisma.results.count({
+            where: {
+                answers: { equals: result.answers },
+                appleCandyUrl: { not: null },
+            },
+        })
+
+        const pastCount = Math.max(0, sameCount - 1) // current を除いた過去の件数
+
         console.log('Survey results saved:', {
             resultId: result.id,
             totalQuestions,
@@ -136,13 +146,17 @@ export async function POST(request: NextRequest) {
             answers: result.answers,
             questions,
             appleCandyUrl: result.appleCandyUrl,
+            sameCount,
+            pastCount,
         })
 
-        // 成功レスポンス
+        // 成功レスポンス（同じりんご飴を作った人数を含む）
         return NextResponse.json({
             success: true,
             resultId: result.id,
             appleCandyUrl: result.appleCandyUrl,
+            sameCount,
+            pastCount,
             message: 'アンケート回答が正常に保存されました'
         })
 
