@@ -39,6 +39,7 @@ export function QuizModal({ isOpen, onClose, isAdult = false, resultId }: QuizMo
     const [appleCandyUrl, setAppleCandyUrl] = useState<string | null>(null)
     const [generationError, setGenerationError] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
+    const [pastCount, setPastCount] = useState<number | null>(null)
 
     const progress = questions.length > 0 ? ((currentQuestion + 1) / questions.length) * 100 : 0
 
@@ -185,6 +186,8 @@ export function QuizModal({ isOpen, onClose, isAdult = false, resultId }: QuizMo
             }
 
             setAppleCandyUrl(data.appleCandyUrl)
+            // 集計情報を受け取る
+            if (typeof data.pastCount === 'number') setPastCount(data.pastCount)
             setStage('complete')
         } catch (err) {
             console.error(err)
@@ -351,14 +354,8 @@ export function QuizModal({ isOpen, onClose, isAdult = false, resultId }: QuizMo
                             <div className="space-y-6">
                                 <div className="text-6xl">🎊</div>
                                 <h2 className="text-3xl md:text-4xl font-bold text-balance text-foreground">オリジナルりんご飴が完成！</h2>
-                                <div className="text-8xl font-bold">
-                                    <span className="bg-gradient-to-r from-firework-pink via-firework-gold to-firework-mint bg-clip-text text-transparent">
-                                        {questions.length}
-                                    </span>
-                                    <span className="text-3xl text-muted-foreground">問</span>
-                                </div>
                                 <p className="text-2xl font-semibold text-firework-gold">
-                                    {isAdult ? '大人モード' : 'キッズモード'}の回答から生み出されたオリジナルりんご飴です
+                                    あなたの回答から生み出されたオリジナルりんご飴です
                                 </p>
                             </div>
 
@@ -375,31 +372,41 @@ export function QuizModal({ isOpen, onClose, isAdult = false, resultId }: QuizMo
                                 </div>
                             )}
 
+                            {/* 同じりんご飴を作った人数表示 */}
+                            <div className="pt-4">
+                                {pastCount === null ? null : (
+                                    pastCount === 0 ? (
+                                        <div className="text-5xl font-extrabold bg-gradient-to-r from-pink-700 to-yellow-600 bg-clip-text text-transparent w-fit mx-auto">NEW!</div>
+                                    ) : (
+                                        <div className="text-5xl font-extrabold bg-gradient-to-r from-pink-700 to-yellow-600 bg-clip-text text-transparent w-fit mx-auto">{pastCount + 1}人目!</div>
+                                    )
+                                )}
+                            </div>
+
                             {generationError && (
                                 <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
                                     <p className="text-red-400">{generationError}</p>
                                 </div>
                             )}
 
-                            <div className="flex flex-col gap-4 pt-6">
+                            <div className="flex gap-4 pt-6 justify-center">
                                 <Button
                                     onClick={() => {
                                         router.push(`/camera/${resultId}`)
                                         onClose()
                                     }}
                                     size="lg"
-                                    className="px-12 py-4 cute-button bg-gradient-to-r from-firework-blue to-firework-mint hover:from-firework-mint hover:to-firework-blue text-white font-bold text-xl"
+                                    className="w-fit px-12 py-4 cute-button bg-gradient-to-r from-firework-blue to-firework-mint hover:from-firework-mint hover:to-firework-blue text-white font-bold text-xl"
                                 >
                                     📷 カメラに進む
                                 </Button>
-
                                 <Button
                                     onClick={onClose}
                                     variant="outline"
                                     size="lg"
-                                    className="px-12 py-4 cute-button border-firework-gold/30 hover:bg-firework-gold/10 text-firework-gold font-bold text-lg"
+                                    className="w-fit px-12 py-4 cute-button border-firework-gold/30 hover:bg-firework-gold/10 text-firework-gold font-bold text-lg"
                                 >
-                                    🏠 ホームに戻る
+                                    🔧 作り直す
                                 </Button>
                             </div>
                         </div>
