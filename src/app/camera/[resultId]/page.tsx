@@ -129,7 +129,7 @@ function getHandCenter(landmarks: HandLandmarks) {
   }
 }
 
-function drawHand(_context: CanvasRenderingContext2D, _landmarks: HandLandmarks) {}
+function drawHand() {}
 
 export default function CameraPage() {
   const params = useParams<{ resultId: string }>()
@@ -307,7 +307,7 @@ export default function CameraPage() {
         let detectedFists = 0
 
         for (const landmarks of allLandmarks) {
-          drawHand(context, landmarks)
+          drawHand()
 
           if (isFist(landmarks)) {
             detectedFists += 1
