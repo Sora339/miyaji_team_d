@@ -10,7 +10,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "@/components/ui/dialog";
 import Image from "next/image";
 
@@ -166,10 +165,7 @@ export default function CameraPage() {
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [overlayError, setOverlayError] = useState<string | null>(null);
   const [isReady, setIsReady] = useState(false);
-  const [isOverlayLoading, setIsOverlayLoading] = useState(true);
   const [overlayReady, setOverlayReady] = useState(false);
-  const [overlayUrl, setOverlayUrl] = useState<string | null>(null);
-  const [fistCount, setFistCount] = useState(0);
   const [isCapturing, setIsCapturing] = useState(false);
   const [captureMessage, setCaptureMessage] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState(16 / 9);
@@ -192,7 +188,6 @@ export default function CameraPage() {
   useEffect(() => {
     if (!resultId) {
       setOverlayError("結果IDが指定されていません。");
-      setIsOverlayLoading(false);
       return;
     }
 
@@ -200,9 +195,8 @@ export default function CameraPage() {
 
     setOverlayError(null);
     setOverlayReady(false);
-    setOverlayUrl(null);
     overlayImageRef.current = null;
-    setIsOverlayLoading(true);
+
     (async () => {
       try {
         const response = await fetch(`/api/results/${resultId}`, {
@@ -220,20 +214,16 @@ export default function CameraPage() {
 
         if (controller.signal.aborted) return;
 
-        setOverlayUrl(url);
-
         const image = document.createElement("img");
         image.crossOrigin = "anonymous";
         image.onload = () => {
           if (controller.signal.aborted) return;
           overlayImageRef.current = image;
           setOverlayReady(true);
-          setIsOverlayLoading(false);
         };
         image.onerror = () => {
           if (controller.signal.aborted) return;
           setOverlayError("画像の読み込みに失敗しました。");
-          setIsOverlayLoading(false);
         };
         image.src = url;
       } catch (err) {
@@ -242,7 +232,7 @@ export default function CameraPage() {
         setOverlayError(
           err instanceof Error ? err.message : "画像情報の取得に失敗しました。"
         );
-        setIsOverlayLoading(false);
+        // isOverlayLoadingRef.current = false;
       }
     })();
 
@@ -337,13 +327,11 @@ export default function CameraPage() {
         context.clearRect(0, 0, canvas.width, canvas.height);
 
         const allLandmarks = results.multiHandLandmarks ?? [];
-        let detectedFists = 0;
 
         for (const landmarks of allLandmarks) {
           drawHand();
 
           if (isFist(landmarks)) {
-            detectedFists += 1;
             const center = getHandCenter(landmarks);
             const posX = center.x * canvas.width;
             const posY = center.y * canvas.height;
@@ -367,8 +355,6 @@ export default function CameraPage() {
             }
           }
         }
-
-        setFistCount((prev) => (prev === detectedFists ? prev : detectedFists));
 
         context.restore();
       });

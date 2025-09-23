@@ -77,20 +77,20 @@ export default function QuestionPage() {
                   onClick={handleKidsMode}
                   disabled={resultId === null}
                   className="
-      w-full sm:w-auto
-      overflow-hidden
-      !rounded-full                   /* ← 強制的に丸くする */
-      text-[clamp(1.1rem,2vw,1.6rem)]
-      px-[clamp(2rem,6vw,7rem)]
-      py-[clamp(1.25rem,3.6vw,3.5rem)]
-      font-bold
-      bg-gradient-to-r from-firework-pink to-firework-gold
-      hover:from-orange-300 hover:to-pink-500
-      ring-4 ring-white/20 ring-offset-2 ring-offset-transparent
-      transition
-      disabled:opacity-50 disabled:cursor-not-allowed
-      min-w-[240px] whitespace-nowrap
-    "
+                            w-full sm:w-auto
+                            overflow-hidden
+                            !rounded-full                   /* ← 強制的に丸くする */
+                            text-[clamp(1.1rem,2vw,1.6rem)]
+                            px-[clamp(2rem,6vw,7rem)]
+                            py-[clamp(1.25rem,3.6vw,3.5rem)]
+                            font-bold
+                            bg-gradient-to-r from-firework-pink to-firework-gold
+                            hover:from-orange-300 hover:to-pink-500
+                            ring-4 ring-white/20 ring-offset-2 ring-offset-transparent
+                            transition
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                            min-w-[240px] whitespace-nowrap
+                          "
                 >
                   キッズモード
                 </Button>
@@ -99,21 +99,21 @@ export default function QuestionPage() {
                   onClick={handleAdultMode}
                   disabled={resultId === null}
                   className="
-      w-full sm:w-auto
-      overflow-hidden
-      !rounded-full                   /* ← 同上 */
-      text-[clamp(1rem,1.9vw,1.5rem)]
-      px-[clamp(2rem,5.5vw,6.5rem)]
-      py-[clamp(1.25rem,3.4vw,3.25rem)]
-      font-bold
-      bg-gradient-to-r from-indigo-400 via-purple-500 to-blue-600
-      hover:from-purple-500 hover:to-indigo-600
-      text-white shadow-xl
-      ring-4 ring-white/20 ring-offset-2 ring-offset-transparent
-      transition
-      disabled:opacity-50 disabled:cursor-not-allowed
-      min-w-[240px] whitespace-nowrap
-    "
+                            w-full sm:w-auto
+                            overflow-hidden
+                            !rounded-full                   /* ← 同上 */
+                            text-[clamp(1rem,1.9vw,1.5rem)]
+                            px-[clamp(2rem,5.5vw,6.5rem)]
+                            py-[clamp(1.25rem,3.4vw,3.25rem)]
+                            font-bold
+                            bg-gradient-to-r from-indigo-400 via-purple-500 to-blue-600
+                            hover:from-purple-500 hover:to-indigo-600
+                            text-white shadow-xl
+                            ring-4 ring-white/20 ring-offset-2 ring-offset-transparent
+                            transition
+                            disabled:opacity-50 disabled:cursor-not-allowed
+                            min-w-[240px] whitespace-nowrap
+                          "
                 >
                   ちょっぴり大人なモード
                 </Button>
