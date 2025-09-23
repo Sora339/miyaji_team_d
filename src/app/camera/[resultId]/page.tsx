@@ -327,7 +327,7 @@ export default function CameraPage() {
       setBackgroundReady(false);
       setBackgroundError("背景画像の読み込みに失敗しました。");
     };
-    image.src = "/image/top-bg-re.png";
+    image.src = "/image/purikura-background/4.webp";
 
     return () => {
       backgroundImageRef.current = null;
@@ -773,7 +773,7 @@ export default function CameraPage() {
   }, [todayLabel]);
 
   return (
-    <main className="py-16 min-h-screen bg-gradient-to-b from-[#110a2a] to-[#33446a]">
+    <main className="py-16 min-h-screen bg-gradient-to-b from-[#110a2a] to-[#33446a] flex flex-col items-center justify-center">
       <div
         style={{
           display: "flex",
@@ -788,7 +788,6 @@ export default function CameraPage() {
             width: "min(90vw, 800px)",
             aspectRatio,
             backgroundColor: "#000",
-            borderRadius: "0.75rem",
             overflow: "hidden",
           }}
         >
