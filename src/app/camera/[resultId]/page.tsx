@@ -75,9 +75,8 @@ const SEGMENTATION_CDN =
 const SEGMENTATION_SCRIPT_SRC = `${SEGMENTATION_CDN}selfie_segmentation.js`;
 
 let handsConstructorPromise: Promise<HandsConstructor | null> | null = null;
-let selfieSegmentationConstructorPromise:
-  | Promise<SelfieSegmentationConstructor | null>
-  | null = null;
+let selfieSegmentationConstructorPromise: Promise<SelfieSegmentationConstructor | null> | null =
+  null;
 
 function loadHandsConstructor(): Promise<HandsConstructor | null> {
   if (typeof window === "undefined") return Promise.resolve(null);
@@ -117,50 +116,44 @@ function loadHandsConstructor(): Promise<HandsConstructor | null> {
   return handsConstructorPromise;
 }
 
-function loadSelfieSegmentationConstructor(): Promise<
-  SelfieSegmentationConstructor | null
-> {
+function loadSelfieSegmentationConstructor(): Promise<SelfieSegmentationConstructor | null> {
   if (typeof window === "undefined") return Promise.resolve(null);
   if (window.SelfieSegmentation) {
     return Promise.resolve(window.SelfieSegmentation);
   }
 
   if (!selfieSegmentationConstructorPromise) {
-    selfieSegmentationConstructorPromise = new Promise(
-      (resolve, reject) => {
-        const existingScript = document.querySelector<HTMLScriptElement>(
-          `script[src="${SEGMENTATION_SCRIPT_SRC}"]`
+    selfieSegmentationConstructorPromise = new Promise((resolve, reject) => {
+      const existingScript = document.querySelector<HTMLScriptElement>(
+        `script[src="${SEGMENTATION_SCRIPT_SRC}"]`
+      );
+
+      if (existingScript) {
+        existingScript.addEventListener("load", () =>
+          resolve(window.SelfieSegmentation ?? null)
         );
-
-        if (existingScript) {
-          existingScript.addEventListener("load", () =>
-            resolve(window.SelfieSegmentation ?? null)
-          );
-          existingScript.addEventListener("error", () =>
-            reject(
-              new Error(
-                "Failed to load MediaPipe Selfie Segmentation script."
-              )
-            )
-          );
-          return;
-        }
-
-        const script = document.createElement("script");
-        script.src = SEGMENTATION_SCRIPT_SRC;
-        script.async = true;
-        script.crossOrigin = "anonymous";
-        script.onload = () => resolve(window.SelfieSegmentation ?? null);
-        script.onerror = () => {
-          script.remove();
-          selfieSegmentationConstructorPromise = null;
+        existingScript.addEventListener("error", () =>
           reject(
             new Error("Failed to load MediaPipe Selfie Segmentation script.")
-          );
-        };
-        document.head.appendChild(script);
+          )
+        );
+        return;
       }
-    );
+
+      const script = document.createElement("script");
+      script.src = SEGMENTATION_SCRIPT_SRC;
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      script.onload = () => resolve(window.SelfieSegmentation ?? null);
+      script.onerror = () => {
+        script.remove();
+        selfieSegmentationConstructorPromise = null;
+        reject(
+          new Error("Failed to load MediaPipe Selfie Segmentation script.")
+        );
+      };
+      document.head.appendChild(script);
+    });
   }
 
   return selfieSegmentationConstructorPromise;
@@ -278,6 +271,15 @@ export default function CameraPage() {
   const [serviceLogoReady, setServiceLogoReady] = useState(false);
   const [createrLogoReady, setCreaterLogoReady] = useState(false);
   const [decorationError, setDecorationError] = useState<string | null>(null);
+  const [backgroundOptions, setBackgroundOptions] = useState<string[]>([]);
+  const [backgroundListError, setBackgroundListError] = useState<string | null>(
+    null
+  );
+  const [isBackgroundListLoading, setIsBackgroundListLoading] = useState(false);
+  const [selectedBackground, setSelectedBackground] = useState<string | null>(
+    null
+  );
+  const [isBackgroundModalOpen, setIsBackgroundModalOpen] = useState(true);
 
   const todayLabel = useMemo(
     () =>
@@ -314,26 +316,96 @@ export default function CameraPage() {
   }, [createrLogoReady]);
 
   useEffect(() => {
-    setBackgroundError(null);
-    setBackgroundReady(false);
+    let aborted = false;
 
-    const image = document.createElement("img");
-    image.onload = () => {
-      backgroundImageRef.current = image;
-      setBackgroundReady(true);
-    };
-    image.onerror = () => {
-      backgroundImageRef.current = null;
+    const load = (path: string) => {
+      setBackgroundError(null);
       setBackgroundReady(false);
-      setBackgroundError("背景画像の読み込みに失敗しました。");
+
+      const image = document.createElement("img");
+      image.onload = () => {
+        if (aborted) return;
+        backgroundImageRef.current = image;
+        setBackgroundReady(true);
+      };
+      image.onerror = () => {
+        if (aborted) return;
+        backgroundImageRef.current = null;
+        setBackgroundReady(false);
+        setBackgroundError("背景画像の読み込みに失敗しました。");
+      };
+      image.src = path;
     };
-    image.src = "/image/top-bg-re.png";
+
+    if (selectedBackground) {
+      load(selectedBackground);
+    } else {
+      const fallback = "/image/top-bg-re.png";
+      load(fallback);
+      setSelectedBackground(fallback);
+    }
 
     return () => {
+      aborted = true;
       backgroundImageRef.current = null;
       setBackgroundReady(false);
     };
-  }, [todayLabel]);
+  }, [selectedBackground]);
+
+  useEffect(() => {
+    let active = true;
+    const controller = new AbortController();
+
+    const fetchBackgrounds = async () => {
+      setIsBackgroundListLoading(true);
+      setBackgroundListError(null);
+      try {
+        const response = await fetch("/api/backgrounds", {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          const message = await response.text();
+          throw new Error(message || "背景一覧の取得に失敗しました。");
+        }
+        const data: { backgrounds?: string[] } = await response.json();
+        if (!active) return;
+
+        const items = Array.isArray(data.backgrounds) ? data.backgrounds : [];
+        const normalized = items.map((item) =>
+          item.startsWith("/") ? item : `/image/purikura-background/${item}`
+        );
+
+        if (normalized.length === 0) {
+          setBackgroundListError("利用可能な背景画像が見つかりませんでした。");
+          setBackgroundOptions(["/image/top-bg-re.png"]);
+          setSelectedBackground((prev) => prev ?? "/image/top-bg-re.png");
+          return;
+        }
+
+        setBackgroundOptions(normalized);
+        setSelectedBackground((prev) => prev ?? normalized[0]);
+      } catch (error) {
+        if (controller.signal.aborted || !active) return;
+        console.error(error);
+        setBackgroundListError(
+          error instanceof Error
+            ? error.message
+            : "背景一覧の取得に失敗しました。"
+        );
+        setBackgroundOptions(["/image/top-bg-re.png"]);
+        setSelectedBackground((prev) => prev ?? "/image/top-bg-re.png");
+      } finally {
+        if (active) setIsBackgroundListLoading(false);
+      }
+    };
+
+    fetchBackgrounds();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -762,10 +834,7 @@ export default function CameraPage() {
         selfieSegmentation
           .close()
           .catch((err) =>
-            console.error(
-              "Failed to close MediaPipe Selfie Segmentation",
-              err
-            )
+            console.error("Failed to close MediaPipe Selfie Segmentation", err)
           );
       }
       if (stream) stream.getTracks().forEach((track) => track.stop());
@@ -780,12 +849,14 @@ export default function CameraPage() {
           flexDirection: "column",
           alignItems: "center",
           gap: "1rem",
+          width: "100%",
+          paddingInline: "1rem",
         }}
       >
         <div
           style={{
             position: "relative",
-            width: "min(90vw, 800px)",
+            width: "min(96vw, 880px)",
             aspectRatio,
             backgroundColor: "#000",
             borderRadius: "0.75rem",
@@ -811,7 +882,11 @@ export default function CameraPage() {
             }}
           />
         </div>
-        {(cameraError || overlayError || backgroundError || decorationError) && (
+        {(cameraError ||
+          overlayError ||
+          backgroundError ||
+          decorationError ||
+          backgroundListError) && (
           <div
             style={{
               display: "flex",
@@ -827,16 +902,97 @@ export default function CameraPage() {
             {overlayError && <p>{overlayError}</p>}
             {backgroundError && <p>{backgroundError}</p>}
             {decorationError && <p>{decorationError}</p>}
+            {backgroundListError && <p>{backgroundListError}</p>}
           </div>
         )}
+        <Dialog
+          open={isBackgroundModalOpen}
+          onOpenChange={(open) => {
+            if (!open) setIsBackgroundModalOpen(false);
+          }}
+        >
+          <DialogContent className="max-w-4xl w-full mx-4 bg-card border-2 border-firework-pink/30 firework-bg rounded-3xl shadow-2xl">
+            <DialogHeader>
+              <DialogTitle className="text-2xl text-center">
+                背景を選んでください
+              </DialogTitle>
+            </DialogHeader>
+            <div
+              style={{
+                maxHeight: "60vh",
+                overflowY: "auto",
+                padding: "0.5rem",
+              }}
+            >
+              {isBackgroundListLoading ? (
+                <p className="text-center py-6 text-sm text-muted-foreground">
+                  背景画像を読み込んでいます…
+                </p>
+              ) : backgroundOptions.length === 0 ? (
+                <p className="text-center py-6 text-sm text-muted-foreground">
+                  利用できる背景画像がありません。
+                </p>
+              ) : (
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns:
+                      "repeat(auto-fill, minmax(140px, 1fr))",
+                    gap: "1rem",
+                  }}
+                >
+                  {backgroundOptions.map((option) => {
+                    const isActive = option === selectedBackground;
+                    return (
+                      <button
+                        type="button"
+                        key={option}
+                        onClick={() => {
+                          setSelectedBackground(option);
+                          setIsBackgroundModalOpen(false);
+                        }}
+                        style={{
+                          border: isActive
+                            ? "3px solid #f472b6"
+                            : "2px solid rgba(255,255,255,0.2)",
+                          borderRadius: "1rem",
+                          overflow: "hidden",
+                          padding: "0",
+                          cursor: "pointer",
+                          background: "transparent",
+                          transition: "transform 0.2s ease",
+                        }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={option}
+                          alt="背景候補"
+                          style={{ width: "100%", display: "block" }}
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
         <div
           style={{
             display: "flex",
-            flexDirection: "column",
-            gap: "0.5rem",
-            alignItems: "center",
+            alignItems: "end",
           }}
+          className="gap-8"
         >
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setIsBackgroundModalOpen(true)}
+            disabled={isBackgroundListLoading}
+            className="!rounded-full px-6 py-2 text-base font-semibold"
+          >
+            {isBackgroundListLoading ? "背景を読込中…" : "背景を選ぶ"}
+          </Button>
           <Button
             onClick={async () => {
               if (isCapturing || isSavingPhoto) return;
@@ -899,8 +1055,10 @@ export default function CameraPage() {
               !!overlayError ||
               !!backgroundError ||
               !!decorationError ||
+              !!backgroundListError ||
               !isReady ||
               !backgroundReady ||
+              !selectedBackground ||
               !serviceLogoReady ||
               !createrLogoReady
             }
@@ -920,17 +1078,29 @@ export default function CameraPage() {
           >
             {isCapturing ? "生成中…" : "写真を撮る"}
           </Button>
-          {captureMessage && (
-            <p
-              style={{
-                fontSize: "0.875rem",
-                color: captureMessage.includes("失敗") ? "#dc2626" : "#059669",
-              }}
-            >
-              {captureMessage}
-            </p>
-          )}
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => {
+              if (resultId) {
+                router.push(`/question/${resultId}`);
+              }
+            }}
+            className="!rounded-full px-6 py-2 text-base font-semibold"
+          >
+            りんご飴を作り直す
+          </Button>
         </div>
+        {captureMessage && (
+          <p
+            style={{
+              fontSize: "0.875rem",
+              color: captureMessage.includes("失敗") ? "#dc2626" : "#059669",
+            }}
+          >
+            {captureMessage}
+          </p>
+        )}
 
         <Dialog
           open={isConfirmOpen}
