@@ -1,4 +1,4 @@
-# MediaPipe Hands + Supabase + Prisma プロジェクト
+# 宮地研究室 相模原祭制作 チームD 「CANDY CAMERA.」
 
 このプロジェクトは、以下の技術スタックを使用して構築されています：
 
