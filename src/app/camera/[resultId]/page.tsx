@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import Image from "next/image";
 
 type HandLandmarks = Array<{
   x: number;
@@ -46,6 +45,21 @@ type HandsConstructor = new (config?: {
   locateFile?: (path: string, prefix?: string) => string;
 }) => HandsInstance;
 
+type SelfieSegmentationResults = {
+  segmentationMask?: CanvasImageSource;
+};
+
+interface SelfieSegmentationInstance {
+  close(): Promise<void>;
+  onResults(callback: (results: SelfieSegmentationResults) => void): void;
+  send(input: { image: HTMLVideoElement }): Promise<void>;
+  setOptions(options: { selfieMode?: boolean; modelSelection?: 0 | 1 }): void;
+}
+
+type SelfieSegmentationConstructor = new (config?: {
+  locateFile?: (path: string, prefix?: string) => string;
+}) => SelfieSegmentationInstance;
+
 const FINGER_PAIRS: FingerIndices[] = [
   { tip: 8, pip: 6 },
   { tip: 12, pip: 10 },
@@ -56,7 +70,14 @@ const FINGER_PAIRS: FingerIndices[] = [
 const HANDS_CDN = "https://cdn.jsdelivr.net/npm/@mediapipe/hands/";
 const HAND_SCRIPT_SRC = `${HANDS_CDN}hands.js`;
 
+const SEGMENTATION_CDN =
+  "https://cdn.jsdelivr.net/npm/@mediapipe/selfie_segmentation/";
+const SEGMENTATION_SCRIPT_SRC = `${SEGMENTATION_CDN}selfie_segmentation.js`;
+
 let handsConstructorPromise: Promise<HandsConstructor | null> | null = null;
+let selfieSegmentationConstructorPromise:
+  | Promise<SelfieSegmentationConstructor | null>
+  | null = null;
 
 function loadHandsConstructor(): Promise<HandsConstructor | null> {
   if (typeof window === "undefined") return Promise.resolve(null);
@@ -96,9 +117,59 @@ function loadHandsConstructor(): Promise<HandsConstructor | null> {
   return handsConstructorPromise;
 }
 
+function loadSelfieSegmentationConstructor(): Promise<
+  SelfieSegmentationConstructor | null
+> {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (window.SelfieSegmentation) {
+    return Promise.resolve(window.SelfieSegmentation);
+  }
+
+  if (!selfieSegmentationConstructorPromise) {
+    selfieSegmentationConstructorPromise = new Promise(
+      (resolve, reject) => {
+        const existingScript = document.querySelector<HTMLScriptElement>(
+          `script[src="${SEGMENTATION_SCRIPT_SRC}"]`
+        );
+
+        if (existingScript) {
+          existingScript.addEventListener("load", () =>
+            resolve(window.SelfieSegmentation ?? null)
+          );
+          existingScript.addEventListener("error", () =>
+            reject(
+              new Error(
+                "Failed to load MediaPipe Selfie Segmentation script."
+              )
+            )
+          );
+          return;
+        }
+
+        const script = document.createElement("script");
+        script.src = SEGMENTATION_SCRIPT_SRC;
+        script.async = true;
+        script.crossOrigin = "anonymous";
+        script.onload = () => resolve(window.SelfieSegmentation ?? null);
+        script.onerror = () => {
+          script.remove();
+          selfieSegmentationConstructorPromise = null;
+          reject(
+            new Error("Failed to load MediaPipe Selfie Segmentation script.")
+          );
+        };
+        document.head.appendChild(script);
+      }
+    );
+  }
+
+  return selfieSegmentationConstructorPromise;
+}
+
 declare global {
   interface Window {
     Hands?: HandsConstructor;
+    SelfieSegmentation?: SelfieSegmentationConstructor;
   }
 }
 
@@ -150,6 +221,28 @@ function getHandCenter(landmarks: HandLandmarks) {
 
 function drawHand() {}
 
+function drawRoundedRect(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  radius: number
+) {
+  const r = Math.min(radius, width / 2, height / 2);
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + width - r, y);
+  ctx.quadraticCurveTo(x + width, y, x + width, y + r);
+  ctx.lineTo(x + width, y + height - r);
+  ctx.quadraticCurveTo(x + width, y + height, x + width - r, y + height);
+  ctx.lineTo(x + r, y + height);
+  ctx.quadraticCurveTo(x, y + height, x, y + height - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
 export default function CameraPage() {
   const params = useParams<{ resultId: string }>();
   const resultId = params?.resultId;
@@ -157,10 +250,18 @@ export default function CameraPage() {
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const personCanvasRef = useRef<HTMLCanvasElement | null>(null);
   const overlayImageRef = useRef<HTMLImageElement | null>(null);
   const overlayReadyRef = useRef(false);
   const aspectRatioRef = useRef(16 / 9);
   const capturedBlobRef = useRef<Blob | null>(null);
+  const latestHandLandmarksRef = useRef<HandLandmarks[]>([]);
+  const backgroundImageRef = useRef<HTMLImageElement | null>(null);
+  const backgroundReadyRef = useRef(false);
+  const serviceLogoImageRef = useRef<HTMLImageElement | null>(null);
+  const serviceLogoReadyRef = useRef(false);
+  const createrLogoImageRef = useRef<HTMLImageElement | null>(null);
+  const createrLogoReadyRef = useRef(false);
 
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [overlayError, setOverlayError] = useState<string | null>(null);
@@ -172,6 +273,21 @@ export default function CameraPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [isSavingPhoto, setIsSavingPhoto] = useState(false);
+  const [backgroundReady, setBackgroundReady] = useState(false);
+  const [backgroundError, setBackgroundError] = useState<string | null>(null);
+  const [serviceLogoReady, setServiceLogoReady] = useState(false);
+  const [createrLogoReady, setCreaterLogoReady] = useState(false);
+  const [decorationError, setDecorationError] = useState<string | null>(null);
+
+  const todayLabel = useMemo(
+    () =>
+      new Intl.DateTimeFormat("ja-JP", {
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date()),
+    []
+  );
 
   useEffect(() => {
     return () => {
@@ -184,6 +300,78 @@ export default function CameraPage() {
   useEffect(() => {
     overlayReadyRef.current = overlayReady;
   }, [overlayReady]);
+
+  useEffect(() => {
+    backgroundReadyRef.current = backgroundReady;
+  }, [backgroundReady]);
+
+  useEffect(() => {
+    serviceLogoReadyRef.current = serviceLogoReady;
+  }, [serviceLogoReady]);
+
+  useEffect(() => {
+    createrLogoReadyRef.current = createrLogoReady;
+  }, [createrLogoReady]);
+
+  useEffect(() => {
+    setBackgroundError(null);
+    setBackgroundReady(false);
+
+    const image = document.createElement("img");
+    image.onload = () => {
+      backgroundImageRef.current = image;
+      setBackgroundReady(true);
+    };
+    image.onerror = () => {
+      backgroundImageRef.current = null;
+      setBackgroundReady(false);
+      setBackgroundError("背景画像の読み込みに失敗しました。");
+    };
+    image.src = "/image/top-bg-re.png";
+
+    return () => {
+      backgroundImageRef.current = null;
+      setBackgroundReady(false);
+    };
+  }, [todayLabel]);
+
+  useEffect(() => {
+    let isMounted = true;
+    setDecorationError(null);
+    setServiceLogoReady(false);
+    setCreaterLogoReady(false);
+
+    const handleError = () => {
+      if (!isMounted) return;
+      setDecorationError("ロゴ画像の読み込みに失敗しました。");
+    };
+
+    const serviceImg = document.createElement("img");
+    serviceImg.onload = () => {
+      if (!isMounted) return;
+      serviceLogoImageRef.current = serviceImg;
+      setServiceLogoReady(true);
+    };
+    serviceImg.onerror = handleError;
+    serviceImg.src = "/image/service-logo.webp";
+
+    const createrImg = document.createElement("img");
+    createrImg.onload = () => {
+      if (!isMounted) return;
+      createrLogoImageRef.current = createrImg;
+      setCreaterLogoReady(true);
+    };
+    createrImg.onerror = handleError;
+    createrImg.src = "/image/creater-logo.webp";
+
+    return () => {
+      isMounted = false;
+      serviceLogoImageRef.current = null;
+      createrLogoImageRef.current = null;
+      setServiceLogoReady(false);
+      setCreaterLogoReady(false);
+    };
+  }, [todayLabel]);
 
   useEffect(() => {
     if (!resultId) {
@@ -244,23 +432,34 @@ export default function CameraPage() {
   useEffect(() => {
     let active = true;
     let hands: HandsInstance | null = null;
+    let selfieSegmentation: SelfieSegmentationInstance | null = null;
     let animationFrame: number | null = null;
     let stream: MediaStream | null = null;
 
     const setup = async () => {
       if (!videoRef.current || !canvasRef.current) return;
 
-      const HandsCtor = await loadHandsConstructor().catch((err) => {
-        console.error(err);
-        return null;
-      });
+      const [HandsCtor, SegmentationCtor] = await Promise.all([
+        loadHandsConstructor().catch((err) => {
+          console.error(err);
+          return null;
+        }),
+        loadSelfieSegmentationConstructor().catch((err) => {
+          console.error(err);
+          return null;
+        }),
+      ]);
 
-      if (!HandsCtor) {
+      if (!HandsCtor || !SegmentationCtor) {
         if (active)
           setCameraError(
-            "MediaPipe Hands を読み込めませんでした。ネットワーク設定を確認してください。"
+            "カメラ処理モジュールを読み込めませんでした。ネットワーク設定を確認してください。"
           );
         return;
+      }
+
+      if (active) {
+        setCameraError(null);
       }
 
       try {
@@ -286,8 +485,14 @@ export default function CameraPage() {
         if (active) setCameraError("カメラ映像を再生できませんでした。");
       });
 
+      if (!active) return;
+
       hands = new HandsCtor({
         locateFile: (file) => `${HANDS_CDN}${file}`,
+      });
+
+      selfieSegmentation = new SegmentationCtor({
+        locateFile: (file) => `${SEGMENTATION_CDN}${file}`,
       });
 
       hands.setOptions({
@@ -298,7 +503,16 @@ export default function CameraPage() {
         minTrackingConfidence: 0.5,
       });
 
+      selfieSegmentation.setOptions({
+        selfieMode: false,
+        modelSelection: 1,
+      });
+
       hands.onResults((results) => {
+        latestHandLandmarksRef.current = results.multiHandLandmarks ?? [];
+      });
+
+      selfieSegmentation.onResults((results) => {
         const canvas = canvasRef.current;
         const context = canvas?.getContext("2d");
         const currentVideo = videoRef.current;
@@ -307,52 +521,198 @@ export default function CameraPage() {
         const { videoWidth, videoHeight } = currentVideo;
         if (!videoWidth || !videoHeight) return;
 
-        if (canvas.width !== videoWidth || canvas.height !== videoHeight) {
-          canvas.width = videoWidth;
-          canvas.height = videoHeight;
+        let personCanvas = personCanvasRef.current;
+        if (!personCanvas) {
+          personCanvas = document.createElement("canvas");
+          personCanvasRef.current = personCanvas;
         }
 
-        if (videoWidth && videoHeight) {
-          const nextAspect = videoWidth / videoHeight;
-          if (
-            Number.isFinite(nextAspect) &&
-            Math.abs(aspectRatioRef.current - nextAspect) > 0.001
-          ) {
-            aspectRatioRef.current = nextAspect;
-            setAspectRatio(nextAspect);
-          }
+        if (
+          personCanvas.width !== videoWidth ||
+          personCanvas.height !== videoHeight
+        ) {
+          personCanvas.width = videoWidth;
+          personCanvas.height = videoHeight;
+        }
+
+        const personContext = personCanvas.getContext("2d");
+        if (!personContext) return;
+
+        personContext.save();
+        personContext.clearRect(0, 0, personCanvas.width, personCanvas.height);
+        personContext.drawImage(
+          currentVideo,
+          0,
+          0,
+          personCanvas.width,
+          personCanvas.height
+        );
+        if (results.segmentationMask) {
+          personContext.globalCompositeOperation = "destination-in";
+          personContext.drawImage(
+            results.segmentationMask,
+            0,
+            0,
+            personCanvas.width,
+            personCanvas.height
+          );
+        }
+        personContext.restore();
+
+        const contentWidth = personCanvas.width;
+        const contentHeight = personCanvas.height;
+
+        const framePaddingX = Math.round(contentWidth * 0.05);
+        const framePaddingTop = Math.round(contentHeight * 0.065);
+        const framePaddingBottom = Math.round(contentHeight * 0.18);
+
+        const targetCanvasWidth = contentWidth + framePaddingX * 2;
+        const targetCanvasHeight =
+          contentHeight + framePaddingTop + framePaddingBottom;
+
+        if (
+          canvas.width !== targetCanvasWidth ||
+          canvas.height !== targetCanvasHeight
+        ) {
+          canvas.width = targetCanvasWidth;
+          canvas.height = targetCanvasHeight;
+        }
+
+        const nextAspect = targetCanvasWidth / targetCanvasHeight;
+        if (
+          Number.isFinite(nextAspect) &&
+          Math.abs(aspectRatioRef.current - nextAspect) > 0.001
+        ) {
+          aspectRatioRef.current = nextAspect;
+          setAspectRatio(nextAspect);
         }
 
         context.save();
         context.clearRect(0, 0, canvas.width, canvas.height);
+        context.fillStyle = "#fff";
+        context.fillRect(0, 0, canvas.width, canvas.height);
 
-        const allLandmarks = results.multiHandLandmarks ?? [];
+        const contentX = framePaddingX;
+        const contentY = framePaddingTop;
+        const contentRadius = Math.min(contentWidth, contentHeight) * 0.045;
 
-        for (const landmarks of allLandmarks) {
-          drawHand();
+        context.save();
+        drawRoundedRect(
+          context,
+          contentX,
+          contentY,
+          contentWidth,
+          contentHeight,
+          contentRadius
+        );
+        context.clip();
 
-          if (isFist(landmarks)) {
+        if (backgroundReadyRef.current && backgroundImageRef.current) {
+          context.drawImage(
+            backgroundImageRef.current,
+            contentX,
+            contentY,
+            contentWidth,
+            contentHeight
+          );
+        } else {
+          context.fillStyle = "#000";
+          context.fillRect(contentX, contentY, contentWidth, contentHeight);
+        }
+
+        const allLandmarks = latestHandLandmarksRef.current;
+        if (overlayReadyRef.current && overlayImageRef.current) {
+          const overlayImg = overlayImageRef.current;
+          for (const landmarks of allLandmarks) {
+            drawHand();
+            if (!isFist(landmarks)) continue;
+
             const center = getHandCenter(landmarks);
-            const posX = center.x * canvas.width;
-            const posY = center.y * canvas.height;
+            const posX = contentX + center.x * contentWidth;
+            const posY = contentY + center.y * contentHeight;
 
-            if (overlayReadyRef.current && overlayImageRef.current) {
-              const overlayImg = overlayImageRef.current;
+            const candyWidth = Math.max(contentWidth * 0.18, 1);
+            const candyHeight = Math.max(contentHeight * 0.38, 1);
 
-              const drawWidth = Math.max(canvas.width * 0.18, 1);
-              const drawHeight = Math.max(canvas.height * 0.38, 1);
+            context.save();
+            context.translate(posX, posY - candyHeight * 0.74);
+            context.drawImage(
+              overlayImg,
+              -candyWidth / 2,
+              -candyHeight / 2,
+              candyWidth,
+              candyHeight
+            );
+            context.restore();
+          }
+        }
 
-              context.save();
-              context.translate(posX, posY - drawHeight * 0.74);
-              context.drawImage(
-                overlayImg,
-                -drawWidth / 2,
-                -drawHeight / 2,
-                drawWidth,
-                drawHeight
-              );
-              context.restore();
-            }
+        context.drawImage(
+          personCanvas,
+          contentX,
+          contentY,
+          contentWidth,
+          contentHeight
+        );
+        context.restore();
+
+        const bottomAreaTop = contentY + contentHeight;
+        const bottomAreaHeight = Math.max(canvas.height - bottomAreaTop, 0);
+        if (bottomAreaHeight > 0) {
+          const infoPadding = Math.round(bottomAreaHeight * 0.2);
+          const infoTop = bottomAreaTop + infoPadding;
+          const infoBottom = canvas.height - infoPadding;
+          const infoHeight = Math.max(infoBottom - infoTop, 1);
+
+          const serviceLogo =
+            serviceLogoReadyRef.current && serviceLogoImageRef.current
+              ? serviceLogoImageRef.current
+              : null;
+          if (serviceLogo) {
+            const maxLogoWidth = contentWidth * 0.25;
+            const maxLogoHeight = infoHeight;
+            const scale = Math.min(
+              maxLogoWidth / serviceLogo.naturalWidth,
+              maxLogoHeight / serviceLogo.naturalHeight,
+              1
+            );
+            const drawWidth = serviceLogo.naturalWidth * scale;
+            const drawHeight = serviceLogo.naturalHeight * scale;
+            const logoX = contentX;
+            const logoY = infoTop + (infoHeight - drawHeight) / 2;
+            context.drawImage(serviceLogo, logoX, logoY, drawWidth, drawHeight);
+          }
+
+          const dateFontSize = Math.max(Math.round(infoHeight * 0.35), 16);
+          context.fillStyle = "#1f2937";
+          context.textAlign = "right";
+          context.textBaseline = "top";
+          context.font = `600 ${dateFontSize}px sans-serif`;
+          const dateX = contentX + contentWidth;
+          const dateY = infoTop;
+          context.fillText(todayLabel, dateX, dateY);
+
+          const createrLogo =
+            createrLogoReadyRef.current && createrLogoImageRef.current
+              ? createrLogoImageRef.current
+              : null;
+          if (createrLogo) {
+            const spacing = Math.round(infoHeight * 0.12);
+            const availableHeight = Math.max(
+              infoBottom - (dateY + dateFontSize + spacing),
+              1
+            );
+            const maxLogoWidth = contentWidth * 0.25;
+            const scale = Math.min(
+              maxLogoWidth / createrLogo.naturalWidth,
+              availableHeight / createrLogo.naturalHeight,
+              1
+            );
+            const drawWidth = createrLogo.naturalWidth * scale;
+            const drawHeight = createrLogo.naturalHeight * scale;
+            const logoX = contentX + contentWidth - drawWidth;
+            const logoY = infoBottom - drawHeight;
+            context.drawImage(createrLogo, logoX, logoY, drawWidth, drawHeight);
           }
         }
 
@@ -360,9 +720,21 @@ export default function CameraPage() {
       });
 
       const processFrame = async () => {
-        if (!active || !hands || !videoRef.current) return;
+        if (
+          !active ||
+          !hands ||
+          !selfieSegmentation ||
+          !videoRef.current ||
+          videoRef.current.videoWidth === 0 ||
+          videoRef.current.videoHeight === 0
+        ) {
+          animationFrame = requestAnimationFrame(processFrame);
+          return;
+        }
+
         try {
           await hands.send({ image: videoRef.current });
+          await selfieSegmentation.send({ image: videoRef.current });
         } catch (err) {
           console.error("Failed to process frame", err);
         }
@@ -377,6 +749,7 @@ export default function CameraPage() {
 
     return () => {
       active = false;
+      latestHandLandmarksRef.current = [];
       if (animationFrame) cancelAnimationFrame(animationFrame);
       if (hands) {
         hands
@@ -385,19 +758,22 @@ export default function CameraPage() {
             console.error("Failed to close MediaPipe Hands", err)
           );
       }
+      if (selfieSegmentation) {
+        selfieSegmentation
+          .close()
+          .catch((err) =>
+            console.error(
+              "Failed to close MediaPipe Selfie Segmentation",
+              err
+            )
+          );
+      }
       if (stream) stream.getTracks().forEach((track) => track.stop());
     };
-  }, []);
+  }, [todayLabel]);
 
   return (
     <main className="py-16 min-h-screen bg-gradient-to-b from-[#110a2a] to-[#33446a]">
-      <Image
-        className="w-[710px] mx-auto"
-        src="/image/og-image.png"
-        alt="CANDY CAMERA."
-        width={710}
-        height={640}
-      />
       <div
         style={{
           display: "flex",
@@ -409,7 +785,7 @@ export default function CameraPage() {
         <div
           style={{
             position: "relative",
-            width: "min(90vw, 720px)",
+            width: "min(90vw, 800px)",
             aspectRatio,
             backgroundColor: "#000",
             borderRadius: "0.75rem",
@@ -421,7 +797,7 @@ export default function CameraPage() {
             playsInline
             muted
             autoPlay
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            style={{ display: "none" }}
           />
           <canvas
             ref={canvasRef}
@@ -435,6 +811,24 @@ export default function CameraPage() {
             }}
           />
         </div>
+        {(cameraError || overlayError || backgroundError || decorationError) && (
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: "0.25rem",
+              marginTop: "0.75rem",
+              color: "#f87171",
+              textAlign: "center",
+              fontSize: "0.875rem",
+            }}
+          >
+            {cameraError && <p>{cameraError}</p>}
+            {overlayError && <p>{overlayError}</p>}
+            {backgroundError && <p>{backgroundError}</p>}
+            {decorationError && <p>{decorationError}</p>}
+          </div>
+        )}
         <div
           style={{
             display: "flex",
@@ -454,23 +848,22 @@ export default function CameraPage() {
                 return;
               }
 
-              const video = videoRef.current;
-              const overlayCanvas = canvasRef.current;
+              const displayCanvas = canvasRef.current;
 
-              if (!video || !overlayCanvas) {
+              if (!displayCanvas) {
                 setCaptureMessage("カメラがまだ準備できていません。");
                 return;
               }
 
-              const { videoWidth, videoHeight } = video;
-              if (!videoWidth || !videoHeight) {
+              const { width, height } = displayCanvas;
+              if (!width || !height) {
                 setCaptureMessage("カメラ映像が利用できません。");
                 return;
               }
 
               const snapshotCanvas = document.createElement("canvas");
-              snapshotCanvas.width = videoWidth;
-              snapshotCanvas.height = videoHeight;
+              snapshotCanvas.width = width;
+              snapshotCanvas.height = height;
               const context = snapshotCanvas.getContext("2d");
 
               if (!context) {
@@ -478,8 +871,7 @@ export default function CameraPage() {
                 return;
               }
 
-              context.drawImage(video, 0, 0, videoWidth, videoHeight);
-              context.drawImage(overlayCanvas, 0, 0, videoWidth, videoHeight);
+              context.drawImage(displayCanvas, 0, 0, width, height);
 
               setIsCapturing(true);
 
@@ -505,7 +897,12 @@ export default function CameraPage() {
               isSavingPhoto ||
               !!cameraError ||
               !!overlayError ||
-              !isReady
+              !!backgroundError ||
+              !!decorationError ||
+              !isReady ||
+              !backgroundReady ||
+              !serviceLogoReady ||
+              !createrLogoReady
             }
             className="               
                       overflow-hidden !rounded-full
