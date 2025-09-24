@@ -634,9 +634,9 @@ export default function CameraPage() {
         const contentWidth = personCanvas.width;
         const contentHeight = personCanvas.height;
 
-        const framePaddingX = Math.round(contentWidth * 0.05);
-        const framePaddingTop = Math.round(contentHeight * 0.065);
-        const framePaddingBottom = Math.round(contentHeight * 0.18);
+        const framePaddingX = 0;
+        const framePaddingTop = 0;
+        const framePaddingBottom = Math.round(contentHeight * 0.24);
 
         const targetCanvasWidth = contentWidth + framePaddingX * 2;
         const targetCanvasHeight =
@@ -666,7 +666,7 @@ export default function CameraPage() {
 
         const contentX = framePaddingX;
         const contentY = framePaddingTop;
-        const contentRadius = Math.min(contentWidth, contentHeight) * 0.045;
+        const contentRadius = 0;
 
         context.save();
         drawRoundedRect(
@@ -750,17 +750,17 @@ export default function CameraPage() {
             );
             const drawWidth = serviceLogo.naturalWidth * scale;
             const drawHeight = serviceLogo.naturalHeight * scale;
-            const logoX = contentX;
+            const logoX = contentX + 10;
             const logoY = infoTop + (infoHeight - drawHeight) / 2;
             context.drawImage(serviceLogo, logoX, logoY, drawWidth, drawHeight);
           }
 
-          const dateFontSize = Math.max(Math.round(infoHeight * 0.35), 16);
-          context.fillStyle = "#1f2937";
+          const dateFontSize = Math.max(Math.round(infoHeight * 0.30), 14);
+          context.fillStyle = "#252525";
           context.textAlign = "right";
           context.textBaseline = "top";
           context.font = `600 ${dateFontSize}px sans-serif`;
-          const dateX = contentX + contentWidth;
+          const dateX = contentX + contentWidth - 15;
           const dateY = infoTop;
           context.fillText(todayLabel, dateX, dateY);
 
@@ -782,7 +782,7 @@ export default function CameraPage() {
             );
             const drawWidth = createrLogo.naturalWidth * scale;
             const drawHeight = createrLogo.naturalHeight * scale;
-            const logoX = contentX + contentWidth - drawWidth;
+            const logoX = contentX + contentWidth - drawWidth - 15;
             const logoY = infoBottom - drawHeight;
             context.drawImage(createrLogo, logoX, logoY, drawWidth, drawHeight);
           }
@@ -980,19 +980,9 @@ export default function CameraPage() {
         <div
           style={{
             display: "flex",
-            alignItems: "end",
           }}
-          className="gap-8"
+          className="gap-8 flex-col items-center"
         >
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setIsBackgroundModalOpen(true)}
-            disabled={isBackgroundListLoading}
-            className="!rounded-full px-6 py-2 text-base font-semibold"
-          >
-            {isBackgroundListLoading ? "背景を読込中…" : "背景を選ぶ"}
-          </Button>
           <Button
             onClick={async () => {
               if (isCapturing || isSavingPhoto) return;
@@ -1078,18 +1068,29 @@ export default function CameraPage() {
           >
             {isCapturing ? "生成中…" : "写真を撮る"}
           </Button>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              if (resultId) {
-                router.push(`/question/${resultId}`);
-              }
-            }}
-            className="!rounded-full px-6 py-2 text-base font-semibold"
-          >
-            りんご飴を作り直す
-          </Button>
+          <div className="flex gap-6">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                if (resultId) {
+                  router.push(`/question/${resultId}`);
+                }
+              }}
+              className="!rounded-full px-6 py-2 text-base font-semibold"
+            >
+              りんご飴を作り直す
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsBackgroundModalOpen(true)}
+              disabled={isBackgroundListLoading}
+              className="!rounded-full px-6 py-2 text-base font-semibold"
+            >
+              {isBackgroundListLoading ? "背景を読込中…" : "背景を選ぶ"}
+            </Button>
+          </div>
         </div>
         {captureMessage && (
           <p

@@ -44,7 +44,7 @@ export default async function DownloadPage({ params }: Props) {
     <main className="min-h-screen bg-gradient-to-b from-[#110a2a] to-[#33446a] px-6 py-12 text-white">
       <div className="flex mx-auto max-w-fit flex-col items-center gap-8">
         <header className="text-center space-y-3">
-          <h1 className="text-3xl font-bold">Candy Camera ダウンロード</h1>
+          <h1 className="text-3xl font-bold">CANDY CAMERA. ダウンロード</h1>
           <p className="text-sm text-slate-300">
             下のQRコードをスマートフォンで読み取って、撮影した写真をダウンロードしてください。
           </p>

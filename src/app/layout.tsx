@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const SITE_NAME = "Candy Camera";
+const SITE_NAME = "CANDY CAMERA.";
 const OG_IMAGE = "/image/og-image.png";
 
 export const metadata: Metadata = {
